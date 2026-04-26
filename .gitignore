@@ -18,6 +18,9 @@ runs/
 wandb/
 datasets/
 
+segmentation_pipeline/outputs/
+segmentation_pipeline/**/weights/*.pt
+
 *.pt
 *.pth
 *.onnx

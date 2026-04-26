@@ -1,0 +1,32 @@
+pidnet:
+  source_root: segmentation_pipeline/pidnet/source
+  weights: segmentation_pipeline/pidnet/weights/PIDNet_L_Cityscapes_test.pt
+  architecture: pidnet-l
+  num_classes: 19
+  road_class_id: 0
+  road_dilate: 15
+  bbox_pad_px: 8
+  bbox_pad_ratio: 0.02
+  exclude_drone: true
+  default_input_root: RDD2022/RDD_SPLIT
+  default_output_root: segmentation_pipeline/outputs/RDD_SPLIT_pidroad_nondrone
+
+fastsam:
+  weights: segmentation_pipeline/fastsam/weights/FastSAM-s.pt
+  ultralytics_root: ultralytics_yolo11_final
+  default_mode: both
+  segment_all:
+    imgsz: 768
+    conf: 0.1
+    iou: 0.9
+    prompt: null
+  text_road:
+    imgsz: 768
+    conf: 0.1
+    iou: 0.9
+    prompt: road
+
+paper_claim:
+  formal_pidroad_uses: PIDNet
+  fastsam_role: visualization_baseline
+  deployment_warning: PIDRoad generation preserves GT bbox regions, so it is not a pure deployment preprocessing pipeline.

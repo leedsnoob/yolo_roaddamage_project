@@ -1,0 +1,1 @@
+import sys; sys.path.insert(0, '.'); import models; import torch; model = models.pidnet.get_pred_model('pidnet_s', 19); model.eval(); print('PIDNet-S Initialized and in eval mode'); x=torch.randn(1,3,1024,1024); out=model(x); print('Output shape:', out.shape if not isinstance(out, tuple) else [o.shape for o in out])

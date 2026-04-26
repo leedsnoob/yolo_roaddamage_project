@@ -1,0 +1,7 @@
+numpy
+opencv-python
+torch
+torchvision
+ultralytics
+pyyaml
+git+https://github.com/ultralytics/CLIP.git
