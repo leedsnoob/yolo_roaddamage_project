@@ -241,8 +241,8 @@ class SPPF(nn.Module):
 class LSKblock(nn.Module):
     """Large Selective Kernel attention block.
 
-    Ported from the original RDD-RGNet codebase reference implementation and used
-    here only at the deepest semantic stage to avoid disturbing RG11's high-res path.
+    Ported from the original RDD-RGNet codebase reference implementation and used here only at the deepest semantic
+    stage to avoid disturbing RG11's high-res path.
     """
 
     def __init__(self, dim: int):

@@ -167,9 +167,8 @@ class C2_DACA(nn.Module):
 class StripConvAttention(nn.Module):
     """Strip Convolution Attention for direction-aware feature enhancement.
 
-    Uses horizontal (1×K) and vertical (K×1) depthwise strip convolutions
-    to capture directional features of elongated road damage (cracks).
-    Inspired by StripRFNet (SRFM) and LSKA.
+    Uses horizontal (1×K) and vertical (K×1) depthwise strip convolutions to capture directional features of elongated
+    road damage (cracks). Inspired by StripRFNet (SRFM) and LSKA.
 
     Args:
         c1 (int): Input channels.
@@ -255,8 +254,8 @@ class CoordAtt(nn.Module):
 class DySample(nn.Module):
     """Dynamic upsampler with optional channel projection.
 
-    This keeps the RG11 top-down path learnable without changing the overall graph logic.
-    When out_channels matches in_channels, it behaves like a drop-in upsampler.
+    This keeps the RG11 top-down path learnable without changing the overall graph logic. When out_channels matches
+    in_channels, it behaves like a drop-in upsampler.
     """
 
     def __init__(self, in_channels, out_channels=None, scale_factor=2, groups=4):
@@ -300,8 +299,8 @@ class DySample(nn.Module):
         scope = scope.view(b, self.groups, sf, sf, h, w)
         scope = scope.permute(0, 1, 4, 2, 5, 3).reshape(b, self.groups, h * sf, w * sf)
 
-        offset_x = offset[:, :self.groups] * scope
-        offset_y = offset[:, self.groups:] * scope
+        offset_x = offset[:, : self.groups] * scope
+        offset_y = offset[:, self.groups :] * scope
 
         grid_x, grid_y = self._generate_grid(h * sf, w * sf, x.device)
         offset_x = offset_x.mean(dim=1) + grid_x.unsqueeze(0)
@@ -329,9 +328,8 @@ class binary_spatial_Attention(nn.Module):
 class DWSConvDown(nn.Module):
     """Depthwise Separable Convolution Downsampling (Drone-YOLO style).
 
-    Large-kernel depthwise conv (stride=2) followed by pointwise conv.
-    Used in sandwich-fusion for extracting spatial info from shallower features
-    while downsampling to match the target resolution.
+    Large-kernel depthwise conv (stride=2) followed by pointwise conv. Used in sandwich-fusion for extracting spatial
+    info from shallower features while downsampling to match the target resolution.
 
     Reference: Drone-YOLO (Zhang, 2023) - sandwich-fusion module, Figure 7.
     """
