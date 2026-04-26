@@ -15,6 +15,7 @@ from ultralytics.nn.modules import (
     AIFI,
     C1,
     C2,
+    C2_DACA,
     C2PSA,
     C3,
     C3TR,
@@ -29,6 +30,7 @@ from ultralytics.nn.modules import (
     A2C2f,
     AConv,
     ADown,
+    BiFPN_Fuse,
     Bottleneck,
     BottleneckCSP,
     C2f,
@@ -45,9 +47,13 @@ from ultralytics.nn.modules import (
     Conv,
     Conv2,
     ConvTranspose,
+    CoordAtt,
+    DCNv2,
     Detect,
     DWConv,
     DWConvTranspose2d,
+    DWSConvDown,
+    DySample,
     Focus,
     GhostBottleneck,
     GhostConv,
@@ -67,18 +73,12 @@ from ultralytics.nn.modules import (
     SCDown,
     Segment,
     Segment26,
+    StripConvAttention,
     TorchVision,
     WorldDetect,
     YOLOEDetect,
     YOLOESegment,
     YOLOESegment26,
-    BiFPN_Fuse,
-    C2_DACA,
-    CoordAtt,
-    DCNv2,
-    DWSConvDown,
-    DySample,
-    StripConvAttention,
     binary_spatial_Attention,
     v10Detect,
 )
@@ -409,9 +409,7 @@ class BaseModel(torch.nn.Module):
         and validates the final indices to avoid silent breakage after YAML edits.
         """
         attention_indices = [m.i for m in self.model if m.__class__.__name__ == "binary_spatial_Attention"]
-        mask_indices = [
-            m.i for m in self.model if isinstance(m, nn.Conv2d) and getattr(m, "out_channels", None) == 1
-        ]
+        mask_indices = [m.i for m in self.model if isinstance(m, nn.Conv2d) and getattr(m, "out_channels", None) == 1]
 
         auto_attention = attention_indices[0] if attention_indices else None
         auto_mask = None
@@ -1792,7 +1790,9 @@ def parse_model(d, ch, verbose=True):
                     c2 = make_divisible(min(c2, max_channels) * width, 8)
                 if m is C2fAttn:  # set 1) embed channels and 2) num heads
                     args[1] = make_divisible(min(args[1], max_channels // 2) * width, 8)
-                    args[2] = int(max(round(min(args[2], max_channels // 2 // 32)) * width, 1) if args[2] > 1 else args[2])
+                    args[2] = int(
+                        max(round(min(args[2], max_channels // 2 // 32)) * width, 1) if args[2] > 1 else args[2]
+                    )
 
                 args = [c1, c2, *args[1:]]
             if m in repeat_modules:
