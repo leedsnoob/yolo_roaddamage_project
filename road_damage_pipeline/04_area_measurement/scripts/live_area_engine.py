@@ -34,6 +34,7 @@ DEFAULT_DEPTH_CKPT = (
     / "checkpoints"
     / "depth_anything_v2_metric_vkitti_vits.pth"
 )
+DEFAULT_METRIC3D_HUB_CACHE = Path.home() / ".cache" / "torch" / "hub" / "yvanyin_metric3d_main"
 
 CLASS_ID_TO_CODE = {0: "D00", 1: "D10", 2: "D20", 3: "D40"}
 CLASS_ID_TO_EN = {
@@ -239,7 +240,16 @@ class Metric3DRunner:
 
     def _load(self) -> None:
         try:
-            model = torch.hub.load("yvanyin/metric3d", self.config.metric3d_model, pretrain=True, trust_repo=True)
+            if DEFAULT_METRIC3D_HUB_CACHE.exists():
+                model = torch.hub.load(
+                    str(DEFAULT_METRIC3D_HUB_CACHE),
+                    self.config.metric3d_model,
+                    source="local",
+                    pretrain=True,
+                    trust_repo=True,
+                )
+            else:
+                model = torch.hub.load("yvanyin/metric3d", self.config.metric3d_model, pretrain=True, trust_repo=True)
         except Exception as exc:  # noqa: BLE001
             raise RuntimeError(f"Failed to load Metric3D via torch.hub: {type(exc).__name__}: {exc}") from exc
         self.model = model

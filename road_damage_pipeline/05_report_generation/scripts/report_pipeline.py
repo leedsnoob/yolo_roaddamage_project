@@ -595,6 +595,7 @@ def build_video_report_input(args: argparse.Namespace, out_dir: Path, area_engin
 
     frame_dir = ensure_dir(out_dir / "representative_frames")
     raw_frame_dir = ensure_dir(out_dir / "representative_raw_frames")
+    area_visual_dir = ensure_dir(out_dir / "area_visuals")
     rows_by_frame: dict[int, list[dict[str, str]]] = defaultdict(list)
     for row in detection_rows:
         rows_by_frame[int(row["frame_idx"])].append(row)
@@ -621,7 +622,8 @@ def build_video_report_input(args: argparse.Namespace, out_dir: Path, area_engin
             confidence=float(selected["confidence"]),
             bbox_xyxy=[float(v) for v in selected["bbox_xyxy"]],
         )
-        representative_area_by_event[item_id] = area_engine.estimate_image(raw_frame_path, [spec])[item_id]
+        area_by_id, area_visuals = area_engine.estimate_image_with_visuals(raw_frame_path, [spec], area_visual_dir)
+        representative_area_by_event[item_id] = area_by_id[item_id]
         annotated_frame.update(
             {
                 "representative_event_id": item_id,
@@ -630,6 +632,7 @@ def build_video_report_input(args: argparse.Namespace, out_dir: Path, area_engin
                 "representative_bbox_xyxy": [round(float(v), 2) for v in selected["bbox_xyxy"]],
                 "raw_frame": str(raw_frame_path),
                 "area_estimates": representative_area_by_event[item_id],
+                "area_visuals": area_visuals,
             }
         )
         representative_frames.append(annotated_frame)
@@ -851,7 +854,9 @@ def build_qwen_messages(
             "You are a road-damage inspection report assistant. Write only from the provided structured evidence "
             "and images. Do not invent defects, numbers, areas, accuracy, or engineering conclusions. "
             "Confidence must be described as model confidence, and area must be described as estimated area. "
-            "Maintenance recommendations are decision-support suggestions only."
+            "Maintenance recommendations are decision-support suggestions only. Every recommendation must cite "
+            "a detection_id, event_id, or class-summary evidence from report_input. If evidence is insufficient, "
+            "state the uncertainty instead of filling gaps."
         )
         user_text = (
             "Generate an English Markdown road-damage inspection report from the report_input below. "
@@ -869,7 +874,8 @@ def build_qwen_messages(
         system_prompt = (
             "你是道路病害巡检报告助手。必须只根据用户提供的结构化证据和图片写报告。"
             "不要编造新的病害、数字、面积、准确率或维修结论。confidence 只能称为模型置信度，"
-            "area 必须称为估计面积。维护建议只能作为辅助建议。"
+            "area 必须称为估计面积。维护建议只能作为辅助建议。每条维护建议必须引用 report_input "
+            "中的 detection_id、event_id 或类别统计作为依据；证据不足时必须说明不确定，不能补充臆测。"
         )
         user_text = (
             "请根据下面的 report_input 生成中文 Markdown 道路病害报告。"

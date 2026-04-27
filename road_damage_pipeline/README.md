@@ -113,3 +113,27 @@ cd road_damage_pipeline/web/frontend
 npm install
 npm run dev
 ```
+
+## Artifact Storage / 中间产物保存位置
+
+All runtime artifacts are saved locally but ignored by Git. They are not pushed to GitHub unless manually copied into a documented figure or demo directory.
+
+所有运行产物都会保存在本地，但默认被 Git 忽略。除非手动复制到论文图表或 demo 目录，否则不会上传到 GitHub。
+
+- Web jobs: `road_damage_pipeline/outputs/ui_jobs/<job_id>/`
+- Direct image report runs: `road_damage_pipeline/outputs/<run_name>/image_demo/`
+- Direct video report runs: `road_damage_pipeline/outputs/<run_name>/video_demo/`
+- Detection evidence: `detections.csv`, `predicted_images/`, `predicted_review_grid.jpg`
+- Video dedup evidence: `track_events.csv`, `summary.json`, representative frames, annotated video when enabled
+- Area evidence: `area_estimates.csv` or `event_area_estimates.csv`, Depth Anything maps, Metric3D maps, area boards
+- Report evidence: `report_input.json`, `qwen_request_preview.json`, `raw_response.json`, `report.md`
+
+## JSON Evidence vs Qwen Report / JSON 证据与 Qwen 报告的区别
+
+CSV/JSON files are the authoritative evidence. They store exact detections, event counts, estimated areas, thresholds, model settings, and artifact paths. They are the source used by the frontend tables and paper results.
+
+CSV/JSON 是可信数据源，保存检测框、事件数量、估计面积、阈值、模型设置和产物路径。前端表格和论文结果应优先引用这些文件。
+
+The Qwen report is the natural-language explanation layer. It converts the structured evidence and selected visual evidence into an inspection-style report, but it must not create new detections, recalculate numbers, or treat confidence as accuracy. The report is useful for human reading and presentation, while JSON remains the audit trail.
+
+Qwen 报告是自然语言解释层，把结构化证据和代表性可视化转成巡检报告。它不能新增病害、重新计算数字，也不能把置信度说成准确率。报告用于阅读和展示，JSON 用于追溯和复核。

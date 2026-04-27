@@ -116,6 +116,11 @@ Each demo writes:
 - `raw_response.json`: SiliconFlow response when `--call-api` is used.
 - `report.md`: generated report or dry-run placeholder.
 - `predicted_images/` or `representative_frames/`: model-predicted visual evidence.
+- `area_visuals/`: Depth Anything V2 map, Metric3D map, and area board for image detections or selected video representative events.
+
+For video reports, `event_area_estimates.csv` contains live M1/M3/M4 area estimates for selected representative events only. Full-video event counting remains in `track_events.csv`.
+
+视频报告中，`event_area_estimates.csv` 只保存代表事件的实时 M1/M3/M4 面积估计；完整视频事件计数仍以 `track_events.csv` 为准。
 
 ## Boundary / 边界
 
@@ -126,6 +131,7 @@ Each demo writes:
 - The agent receives model-predicted boxes only. Ground-truth labels are never sent to Qwen.
 - The formal report area input uses M1/M3/M4. FastSAM is kept as exploration evidence only.
 - `M3/M4` are live Depth Anything V2 / Metric3D estimates. There is no packaged median-ratio fallback.
+- Every maintenance suggestion should cite `detection_id`, `event_id`, or class-summary evidence. If evidence is insufficient, the report should state uncertainty rather than filling gaps.
 
 ## Live Depth Dependencies / 真实深度依赖
 
