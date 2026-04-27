@@ -757,6 +757,18 @@ def image_to_data_url(image_path: Path) -> str:
     return f"data:{mime};base64,{encoded}"
 
 
+def compact_local_paths(value: Any) -> Any:
+    """Keep prompts readable by replacing local absolute paths with filenames."""
+    if isinstance(value, dict):
+        return {key: compact_local_paths(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [compact_local_paths(item) for item in value]
+    if isinstance(value, str) and value.startswith("/"):
+        path = Path(value)
+        return path.name or str(path)
+    return value
+
+
 def compact_report_input_for_prompt(report_input: dict[str, Any], max_events: int) -> dict[str, Any]:
     compact = json.loads(json.dumps(report_input, ensure_ascii=False))
     if compact.get("report_type") == "image_set":
@@ -824,7 +836,7 @@ def compact_report_input_for_prompt(report_input: dict[str, Any], max_events: in
             f"Only top {min(max_events, len(events))} events by confidence are included in the prompt. "
             f"Full event list with {len(events)} events is stored in report_input.json."
         )
-    return compact
+    return compact_local_paths(compact)
 
 
 def build_qwen_messages(

@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
@@ -32,16 +33,43 @@ class PipelineRunner:
             self._run_video_job(job)
 
     def _attach_segmentation_exploration(self, job: JobState) -> None:
-        job.mark_step("segmentation", "running", "Linking packaged PIDNet/FastSAM exploration visuals")
-        assets = self.settings.pipeline_root / "01_segmentation" / "assets"
+        if job.file_type != "image":
+            job.mark_step("segmentation", "skipped", "Live segmentation exploration is image-only in v1")
+            return
+
+        job.mark_step("segmentation", "running", "Running live PIDNet road segmentation for uploaded image")
         target = job.output_dir / "segmentation_exploration"
         if target.exists():
             shutil.rmtree(target)
-        if assets.exists():
-            shutil.copytree(assets, target)
-            job.mark_step("segmentation", "done", "Packaged exploration visuals attached")
-        else:
-            job.mark_step("segmentation", "skipped", "Segmentation exploration assets not found")
+        target.mkdir(parents=True, exist_ok=True)
+        command = [
+            self.settings.pipeline_python,
+            str(self.settings.pipeline_root / "01_segmentation" / "scripts" / "segment_uploaded_image.py"),
+            "--image",
+            str(job.input_path),
+            "--output-dir",
+            str(target),
+            "--device",
+            job.options.device,
+        ]
+        try:
+            result = self._run_command(command, job.output_dir)
+        except PipelineRunError as exc:
+            job.mark_step("segmentation", "skipped", f"Live segmentation unavailable: {exc}")
+            return
+
+        summary_path = target / "summary.json"
+        if summary_path.exists():
+            try:
+                summary = json.loads(summary_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                summary = {}
+            if summary.get("status") == "done":
+                job.mark_step("segmentation", "done", "Live PIDNet segmentation generated for uploaded image")
+                return
+            job.mark_step("segmentation", "skipped", str(summary.get("reason", "Segmentation resources unavailable")))
+            return
+        job.mark_step("segmentation", "skipped", result.stdout[-300:] or "Segmentation output missing")
 
     def _run_image_job(self, job: JobState) -> None:
         image_dir = job.output_dir / "input_images"
@@ -60,7 +88,7 @@ class PipelineRunner:
             "--max-images",
             "1",
         ]
-        result = self._run_command(command, job.output_dir)
+        result = self._run_command(command, job.output_dir, job=job, demo_dir=job.output_dir / "image_demo")
         self._update_from_report_output(job, job.output_dir / "image_demo", result)
 
     def _run_video_job(self, job: JobState) -> None:
@@ -77,7 +105,7 @@ class PipelineRunner:
             "--representative-frames",
             "3",
         ]
-        result = self._run_command(command, job.output_dir)
+        result = self._run_command(command, job.output_dir, job=job, demo_dir=job.output_dir / "video_demo")
         self._update_from_report_output(job, job.output_dir / "video_demo", result)
 
     def _report_command(self, job: JobState, mode: str) -> list[str]:
@@ -112,10 +140,34 @@ class PipelineRunner:
             command.append("--call-api")
         return command
 
-    def _run_command(self, command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    def _run_command(
+        self,
+        command: list[str],
+        cwd: Path,
+        job: JobState | None = None,
+        demo_dir: Path | None = None,
+    ) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env.setdefault("PYTHONUNBUFFERED", "1")
-        result = subprocess.run(command, cwd=str(self.settings.pipeline_root.parent), env=env, text=True, capture_output=True, check=False)
+        process = subprocess.Popen(
+            command,
+            cwd=str(self.settings.pipeline_root.parent),
+            env=env,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        stdout = ""
+        stderr = ""
+        while True:
+            try:
+                stdout, stderr = process.communicate(timeout=1.0)
+                break
+            except subprocess.TimeoutExpired:
+                if job is not None and demo_dir is not None:
+                    self._refresh_partial_progress(job, demo_dir)
+                time.sleep(0.1)
+        result = subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
         log_path = cwd / "pipeline_subprocess.log"
         log_path.write_text(
             "COMMAND:\n"
@@ -129,6 +181,37 @@ class PipelineRunner:
         if result.returncode != 0:
             raise PipelineRunError(f"Pipeline command failed with code {result.returncode}. See {log_path}")
         return result
+
+    def _refresh_partial_progress(self, job: JobState, demo_dir: Path) -> None:
+        """Update UI-visible step state while the report subprocess is still running."""
+        report_input_path = demo_dir / "report_input.json"
+        if report_input_path.exists():
+            try:
+                report_input = json.loads(report_input_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                report_input = {}
+            summary = report_input.get("damage_summary", {})
+            if isinstance(summary, dict):
+                job.summary.update(summary)
+                total = int(summary.get("total_detections", 0) or 0)
+                if total == 0 and job.steps.get("detection") and job.steps["detection"].status == "running":
+                    job.mark_step("detection", "done", "No damage detected")
+                    job.mark_step("area", "skipped", "No detections")
+                    job.mark_step("report", "skipped", "No detections")
+                    return
+                if total > 0 and job.steps.get("detection") and job.steps["detection"].status == "running":
+                    job.mark_step("detection", "done", f"{total} detections")
+                if job.file_type == "video" and job.steps.get("dedup") and job.steps["dedup"].status == "running":
+                    unique = int(summary.get("unique_events", 0) or 0)
+                    job.mark_step("dedup", "done", f"{unique} unique events")
+
+        if (demo_dir / "area_estimates.csv").exists() or (demo_dir / "event_area_estimates.csv").exists():
+            if job.steps.get("area") and job.steps["area"].status == "running":
+                job.mark_step("area", "done", "Area estimates and visual evidence generated")
+
+        if not job.options.call_api and (demo_dir / "qwen_request_preview.json").exists():
+            if job.steps.get("report") and job.steps["report"].status == "running":
+                job.mark_step("report", "skipped", "API disabled; request preview generated")
 
     def _update_from_report_output(self, job: JobState, demo_dir: Path, result: subprocess.CompletedProcess[str]) -> None:
         report_input_path = demo_dir / "report_input.json"

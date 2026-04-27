@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, ReactElement, useEffect, useMemo, useState } from "react";
 
 type StepStatus = "pending" | "running" | "done" | "failed" | "skipped";
 type JobStatus = "queued" | "running" | "completed" | "failed";
@@ -98,6 +98,7 @@ const COPY = {
     areaEmpty: "面积 CSV 生成后会显示在这里。",
     localReportTitle: "结构化摘要",
     qwenReportTitle: "Qwen 报告",
+    savePdf: "打印 / 保存 PDF",
     noReportWithApi: "真实 Qwen 报告未生成。请确认启动后端前已经 export SILICONFLOW_API_KEY，然后重新提交任务。",
     noReportWithoutApi: "未勾选真实 API 调用。本次只生成 qwen_request_preview.json，不生成 Qwen 报告。",
     artifactsTitle: "全部中间产物",
@@ -169,6 +170,7 @@ const COPY = {
     areaEmpty: "Area rows will appear after the CSV is generated.",
     localReportTitle: "Structured summary",
     qwenReportTitle: "Qwen report",
+    savePdf: "Print / Save PDF",
     noReportWithApi: "A real Qwen report was not generated. Export SILICONFLOW_API_KEY before starting the backend, then submit the job again.",
     noReportWithoutApi: "Real API calling is disabled. This job only generated qwen_request_preview.json, not a Qwen report.",
     artifactsTitle: "All intermediate artifacts",
@@ -294,6 +296,149 @@ function groupAreaRows(rows: AreaRow[]): AreaGroup[] {
 function formatArea(value?: number): string {
   if (value === undefined || Number.isNaN(value)) return "-";
   return `${value.toFixed(value >= 10 ? 2 : 3)} m²`;
+}
+
+function markdownTable(lines: string[], keyPrefix: string) {
+  const splitRow = (line: string) =>
+    line
+      .trim()
+      .replace(/^\|/, "")
+      .replace(/\|$/, "")
+      .split("|")
+      .map((cell) => cell.trim());
+  const headers = splitRow(lines[0]);
+  const rows = lines.slice(2).map(splitRow);
+  return (
+    <table className="markdownTable" key={keyPrefix}>
+      <thead>
+        <tr>{headers.map((header, index) => <th key={`${keyPrefix}-h-${index}`}>{header}</th>)}</tr>
+      </thead>
+      <tbody>
+        {rows.map((row, rowIndex) => (
+          <tr key={`${keyPrefix}-r-${rowIndex}`}>
+            {headers.map((_, cellIndex) => <td key={`${keyPrefix}-c-${rowIndex}-${cellIndex}`}>{row[cellIndex] ?? ""}</td>)}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function MarkdownView({ text }: { text: string }) {
+  const lines = text.split(/\r?\n/);
+  const elements: ReactElement[] = [];
+  let index = 0;
+  while (index < lines.length) {
+    const line = lines[index];
+    if (!line.trim()) {
+      index += 1;
+      continue;
+    }
+    const heading = line.match(/^(#{1,4})\s+(.+)$/);
+    if (heading) {
+      const level = Math.min(heading[1].length, 4);
+      const Tag = (["h2", "h3", "h4", "h5"] as const)[level - 1];
+      elements.push(<Tag key={`h-${index}`}>{heading[2]}</Tag>);
+      index += 1;
+      continue;
+    }
+    if (line.includes("|") && lines[index + 1]?.match(/^\s*\|?\s*:?-{3,}/)) {
+      const tableLines = [line, lines[index + 1]];
+      index += 2;
+      while (index < lines.length && lines[index].includes("|") && lines[index].trim()) {
+        tableLines.push(lines[index]);
+        index += 1;
+      }
+      elements.push(markdownTable(tableLines, `table-${index}`));
+      continue;
+    }
+    if (line.match(/^\s*[-*]\s+/)) {
+      const items: string[] = [];
+      while (index < lines.length && lines[index].match(/^\s*[-*]\s+/)) {
+        items.push(lines[index].replace(/^\s*[-*]\s+/, ""));
+        index += 1;
+      }
+      elements.push(
+        <ul key={`ul-${index}`}>
+          {items.map((item, itemIndex) => <li key={`ul-${index}-${itemIndex}`}>{item}</li>)}
+        </ul>
+      );
+      continue;
+    }
+    if (line.match(/^\s*\d+\.\s+/)) {
+      const items: string[] = [];
+      while (index < lines.length && lines[index].match(/^\s*\d+\.\s+/)) {
+        items.push(lines[index].replace(/^\s*\d+\.\s+/, ""));
+        index += 1;
+      }
+      elements.push(
+        <ol key={`ol-${index}`}>
+          {items.map((item, itemIndex) => <li key={`ol-${index}-${itemIndex}`}>{item}</li>)}
+        </ol>
+      );
+      continue;
+    }
+    const paragraph: string[] = [];
+    while (
+      index < lines.length &&
+      lines[index].trim() &&
+      !lines[index].match(/^(#{1,4})\s+/) &&
+      !lines[index].match(/^\s*[-*]\s+/) &&
+      !lines[index].match(/^\s*\d+\.\s+/) &&
+      !(lines[index].includes("|") && lines[index + 1]?.match(/^\s*\|?\s*:?-{3,}/))
+    ) {
+      paragraph.push(lines[index]);
+      index += 1;
+    }
+    elements.push(<p key={`p-${index}`}>{paragraph.join(" ")}</p>);
+  }
+  return <div className="markdownReport">{elements}</div>;
+}
+
+function escapeHtml(text: string): string {
+  return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+function markdownToHtml(markdown: string): string {
+  const lines = markdown.split(/\r?\n/);
+  const html: string[] = [];
+  for (const line of lines) {
+    const heading = line.match(/^(#{1,4})\s+(.+)$/);
+    if (heading) {
+      const level = Math.min(heading[1].length + 1, 5);
+      html.push(`<h${level}>${escapeHtml(heading[2])}</h${level}>`);
+    } else if (line.trim().startsWith("|")) {
+      html.push(`<pre>${escapeHtml(line)}</pre>`);
+    } else if (line.match(/^\s*[-*]\s+/)) {
+      html.push(`<p>• ${escapeHtml(line.replace(/^\s*[-*]\s+/, ""))}</p>`);
+    } else if (line.trim()) {
+      html.push(`<p>${escapeHtml(line)}</p>`);
+    }
+  }
+  return html.join("\n");
+}
+
+function printMarkdownReport(markdown: string, title: string) {
+  const popup = window.open("", "_blank", "noopener,noreferrer,width=980,height=1200");
+  if (!popup) return;
+  popup.document.write(`<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(title)}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; color: #111; margin: 42px; line-height: 1.6; }
+    h1, h2, h3, h4, h5 { margin: 1.2em 0 .45em; line-height: 1.25; }
+    p { margin: .55em 0; }
+    pre { white-space: pre-wrap; background: #f4f4f4; padding: 8px 10px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+${markdownToHtml(markdown)}
+<script>window.onload = () => setTimeout(() => window.print(), 200);</script>
+</body>
+</html>`);
+  popup.document.close();
 }
 
 function pickHeroArtifact(artifacts: Artifact[]): Artifact | undefined {
@@ -615,7 +760,7 @@ export function App() {
             {!heroArtifact && <p>{text.visualEmpty}</p>}
             {heroArtifact?.kind === "image" && <img src={artifactUrl(heroArtifact.url)} alt={heroArtifact.name} />}
             {heroArtifact?.kind === "video" && <video src={artifactUrl(heroArtifact.url)} controls />}
-            {heroArtifact?.kind === "report" && <pre>{reportText}</pre>}
+            {heroArtifact?.kind === "report" && <MarkdownView text={reportText} />}
           </div>
 
           <div className="artifactStrip">
@@ -706,15 +851,22 @@ export function App() {
 
           <section className="card reportCard">
             <h2>{text.localReportTitle}</h2>
-            <pre>{localReport}</pre>
+            <MarkdownView text={localReport} />
           </section>
 
           <section className="card reportCard">
-            <h2>{text.qwenReportTitle}</h2>
+            <div className="reportHeader">
+              <h2>{text.qwenReportTitle}</h2>
+              {!reportLooksLikePlaceholder && (
+                <button type="button" onClick={() => printMarkdownReport(reportText, text.qwenReportTitle)}>
+                  {text.savePdf}
+                </button>
+              )}
+            </div>
             {reportLooksLikePlaceholder ? (
-              <pre>{job?.options.call_api ? text.noReportWithApi : text.noReportWithoutApi}</pre>
+              <MarkdownView text={job?.options.call_api ? text.noReportWithApi : text.noReportWithoutApi} />
             ) : (
-              <pre>{reportText}</pre>
+              <MarkdownView text={reportText} />
             )}
           </section>
         </section>

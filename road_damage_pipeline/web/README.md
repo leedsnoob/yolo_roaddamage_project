@@ -8,7 +8,7 @@ This UI is a local engineering wrapper around the five pipeline modules. It does
 
 - Image / 图片：upload -> detection -> area measurement -> report generation.
 - Video / 视频：upload -> detection -> video deduplication -> representative-frame area measurement -> report generation.
-- Segmentation / 语义分割：exploration-only visual module. It can be attached for display, but it is not part of the formal report chain.
+- Segmentation / 语义分割：exploration-only visual module. For image uploads, the UI runs live PIDNet road segmentation on the uploaded image; it is not part of the formal report chain.
 - Language / 语言：the UI supports Chinese and English. The selected language is also passed to report generation, so Qwen reports can be generated in Chinese or English.
 
 ## Start / 启动
@@ -59,3 +59,7 @@ road_damage_pipeline/outputs/ui_jobs/<job_id>/
 The frontend shows detection images, video/keyframe artifacts, area boards, depth maps, CSV/JSON evidence, and generated report markdown.
 
 前端会展示检测图、视频/关键帧、面积 board、深度图、CSV/JSON 证据和报告 Markdown。
+
+Reports are stored as Markdown evidence, but the frontend renders them as readable report pages and provides a browser print/save-as-PDF action.
+
+报告文件以 Markdown 作为可追溯证据保存，但前端会渲染为易读报告页面，并提供浏览器打印/另存 PDF。

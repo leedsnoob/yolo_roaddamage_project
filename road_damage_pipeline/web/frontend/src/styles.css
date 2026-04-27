@@ -318,7 +318,6 @@ h2 {
 }
 
 .heroCanvas pre,
-.reportCard pre,
 .jsonPanel {
   white-space: pre-wrap;
   word-break: break-word;
@@ -421,9 +420,75 @@ h2 {
 }
 
 .jsonPanel,
-.reportCard pre {
+.reportCard .markdownReport {
   max-height: 330px;
   overflow: auto;
+}
+
+.reportHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.reportHeader button {
+  border: 1px solid rgba(246, 189, 56, 0.38);
+  border-radius: 999px;
+  padding: 8px 12px;
+  color: #17120a;
+  background: var(--road-yellow);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.markdownReport {
+  color: #ecefe7;
+  line-height: 1.65;
+  font-size: 14px;
+}
+
+.markdownReport h2,
+.markdownReport h3,
+.markdownReport h4,
+.markdownReport h5 {
+  margin: 16px 0 8px;
+  color: var(--text);
+}
+
+.markdownReport p {
+  margin: 8px 0;
+  color: #d9ded6;
+}
+
+.markdownReport ul,
+.markdownReport ol {
+  margin: 8px 0 14px;
+  padding-left: 22px;
+  color: #d9ded6;
+}
+
+.markdownTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0 16px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.markdownTable th,
+.markdownTable td {
+  padding: 9px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+  vertical-align: top;
+}
+
+.markdownTable th {
+  color: var(--road-yellow);
+  background: rgba(0, 0, 0, 0.18);
 }
 
 .metricGrid {

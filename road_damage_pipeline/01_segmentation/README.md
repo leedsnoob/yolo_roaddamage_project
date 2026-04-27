@@ -10,6 +10,7 @@ This module contains segmentation-preprocessing exploration evidence.
 - `assets/pidnet_fastsam_comparison/`: PIDNet vs FastSAM all-mode vs FastSAM `road` text prompt comparison.
 - `docs/PIDNET_FASTSAM_USAGE_NOTES.md`: verified usage notes.
 - `scripts/`: scripts used to regenerate the visual evidence.
+- `scripts/segment_uploaded_image.py`: live PIDNet road segmentation for a single uploaded image in the Web UI.
 
 ## Current conclusion / 当前结论
 
@@ -27,6 +28,21 @@ Regenerate the packaged comparison assets when needed:
 python road_damage_pipeline/01_segmentation/scripts/build_pidnet_fastsam_visual_comparison.py
 python road_damage_pipeline/01_segmentation/scripts/build_pidroad_strategy_visuals.py
 ```
+
+Run live segmentation for one uploaded image:
+
+对单张上传图运行真实 PIDNet 道路分割：
+
+```bash
+python road_damage_pipeline/01_segmentation/scripts/segment_uploaded_image.py \
+  --image road_damage_pipeline/02_detection/samples/images/raw/Japan_001608.jpg \
+  --output-dir road_damage_pipeline/outputs/segmentation_live_demo \
+  --device cpu
+```
+
+The Web UI uses this live path when the segmentation option is enabled for image uploads. It no longer copies packaged comparison boards as if they were the current upload.
+
+Web UI 在图片上传时勾选分割探索，会走这条 live 路径，不再把打包对比图当成当前上传图的结果。
 
 If external weights are missing, check the weight READMEs:
 
