@@ -1,0 +1,5 @@
+board_index,time_s,frame_idx,output
+1,7.257,174,assets/video_dedup/dedup_tracker_comparison_01_f174_t7.3s.jpg
+2,18.936,454,assets/video_dedup/dedup_tracker_comparison_02_f454_t18.9s.jpg
+3,27.736,665,assets/video_dedup/dedup_tracker_comparison_03_f665_t27.7s.jpg
+4,45.337,1087,assets/video_dedup/dedup_tracker_comparison_04_f1087_t45.3s.jpg

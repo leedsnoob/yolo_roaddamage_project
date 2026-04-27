@@ -1,0 +1,16 @@
+{
+  "device": "mps",
+  "num_images": 12,
+  "outputs": {
+    "01_original_bbox": "/Users/tomchen/Downloads/source_only_clean_20260401/segmentation_pipeline/outputs/pidroad_strategy_visuals/01_original_bbox",
+    "02_pidnet_road": "/Users/tomchen/Downloads/source_only_clean_20260401/segmentation_pipeline/outputs/pidroad_strategy_visuals/02_pidnet_road",
+    "03_pidnet_road_bbox_preserve": "/Users/tomchen/Downloads/source_only_clean_20260401/segmentation_pipeline/outputs/pidroad_strategy_visuals/03_pidnet_road_bbox_preserve",
+    "04_triptych": "/Users/tomchen/Downloads/source_only_clean_20260401/segmentation_pipeline/outputs/pidroad_strategy_visuals/04_triptych"
+  },
+  "notes": [
+    "Each sample is exported as three separate images and one per-sample triptych.",
+    "The script does not create a single board that combines all samples.",
+    "PIDNet road-only uses Cityscapes road class id 0.",
+    "PIDNet road + bbox preserve applies road dilation and preserves GT bbox regions."
+  ]
+}

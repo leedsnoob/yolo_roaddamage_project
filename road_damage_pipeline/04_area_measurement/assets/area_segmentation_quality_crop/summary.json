@@ -1,0 +1,35 @@
+{
+  "input_mode": "GT bbox crop only",
+  "num_bboxes": 11,
+  "device": "mps",
+  "fastsam_device": "mps",
+  "fastsam_weight": "/Users/tomchen/Downloads/source_only_clean_20260401/segmentation_pipeline/fastsam/weights/FastSAM-s.pt",
+  "fastsam_params": {
+    "imgsz": 768,
+    "conf": 0.1,
+    "iou": 0.9,
+    "min_mask_ratio": 0.01,
+    "max_mask_ratio": 0.95
+  },
+  "prompt_mapping": {
+    "D00": "crack",
+    "D10": "crack",
+    "D20": "crack",
+    "D40": "road damage"
+  },
+  "notes": [
+    "FastSAM is run on bbox crops only; the full image is not passed to FastSAM.",
+    "The text prompt is derived from the detected RDD damage class.",
+    "PIDNet is not used in this visualization.",
+    "Visuals do not include square-meter area values.",
+    "Success means the selected crop mask is non-empty and does not nearly fill the crop."
+  ],
+  "outputs": {
+    "original_bbox": "/Users/tomchen/Downloads/source_only_clean_20260401/road_damage_pipeline/04_area_measurement/assets/area_segmentation_quality_crop/01_original_bbox",
+    "crop_raw": "/Users/tomchen/Downloads/source_only_clean_20260401/road_damage_pipeline/04_area_measurement/assets/area_segmentation_quality_crop/02_crop_raw",
+    "fastsam_prompt_all": "/Users/tomchen/Downloads/source_only_clean_20260401/road_damage_pipeline/04_area_measurement/assets/area_segmentation_quality_crop/03_crop_fastsam_prompt_all",
+    "fastsam_success": "/Users/tomchen/Downloads/source_only_clean_20260401/road_damage_pipeline/04_area_measurement/assets/area_segmentation_quality_crop/04_crop_fastsam_prompt_success",
+    "fastsam_failed": "/Users/tomchen/Downloads/source_only_clean_20260401/road_damage_pipeline/04_area_measurement/assets/area_segmentation_quality_crop/05_crop_fastsam_prompt_failed",
+    "boards": "/Users/tomchen/Downloads/source_only_clean_20260401/road_damage_pipeline/04_area_measurement/assets/area_segmentation_quality_crop/boards"
+  }
+}

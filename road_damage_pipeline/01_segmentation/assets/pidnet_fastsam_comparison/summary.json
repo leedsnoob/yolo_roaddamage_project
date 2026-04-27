@@ -1,0 +1,18 @@
+{
+  "device": "mps",
+  "fastsam_device": "mps",
+  "num_images": 12,
+  "pidnet_weight": "/Users/tomchen/Downloads/source_only_clean_20260401/segmentation_pipeline/pidnet/weights/PIDNet_L_Cityscapes_test.pt",
+  "fastsam_weight": "/Users/tomchen/Downloads/source_only_clean_20260401/segmentation_pipeline/fastsam/weights/FastSAM-s.pt",
+  "fastsam_params": {
+    "imgsz": 768,
+    "conf": 0.1,
+    "iou": 0.9
+  },
+  "notes": [
+    "No pixel-level road ground truth is available; metrics are proxy metrics, not accuracy.",
+    "PIDNet has no prompt and uses Cityscapes semantic road class id 0.",
+    "FastSAM all mode has no prompt and segments all candidate instances.",
+    "FastSAM text-road mode uses text prompt 'road' and may require CLIP."
+  ]
+}

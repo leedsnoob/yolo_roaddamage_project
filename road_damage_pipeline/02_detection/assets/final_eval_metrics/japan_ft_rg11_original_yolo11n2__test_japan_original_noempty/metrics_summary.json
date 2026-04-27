@@ -1,0 +1,66 @@
+{
+  "task_name": "Japan FT RG11 original n__test_japan_original_noempty",
+  "model_family": "japan_finetune",
+  "model_name": "Japan FT RG11 original n",
+  "scale": "n",
+  "dataset_protocol": "japan_original_noempty",
+  "split": "test",
+  "weight_path": "runs_final/deduped_runs/rdd2022_japan_nondrone_nonempty_ft/japan_ft_rg11_original_yolo11n2/weights/best.pt",
+  "save_dir": "/root/autodl-tmp/source_only_clean_20260401/runs_final/local_retest/final_eval/japan_ft_rg11_original_yolo11n2__test_japan_original_noempty",
+  "overall": {
+    "metrics/precision(B)": 0.6094345949064897,
+    "metrics/recall(B)": 0.6049358118575774,
+    "metrics/mAP50(B)": 0.6009723232870781,
+    "metrics/mAP50-95(B)": 0.2960552409746189,
+    "fitness": 0.2960552409746189
+  },
+  "per_class": [
+    {
+      "Class": "Longitudinal Crack",
+      "Images": 423,
+      "Instances": 624,
+      "Box-P": 0.559682,
+      "Box-R": 0.512821,
+      "Box-F1": 0.535228,
+      "mAP50": 0.514197,
+      "mAP50-95": 0.231722
+    },
+    {
+      "Class": "Transverse Crack",
+      "Images": 301,
+      "Instances": 542,
+      "Box-P": 0.521355,
+      "Box-R": 0.492364,
+      "Box-F1": 0.506445,
+      "mAP50": 0.456752,
+      "mAP50-95": 0.174215
+    },
+    {
+      "Class": "Alligator Crack",
+      "Images": 668,
+      "Instances": 902,
+      "Box-P": 0.65234,
+      "Box-R": 0.641907,
+      "Box-F1": 0.647081,
+      "mAP50": 0.665158,
+      "mAP50-95": 0.325583
+    },
+    {
+      "Class": "Pothole",
+      "Images": 831,
+      "Instances": 1218,
+      "Box-P": 0.704361,
+      "Box-R": 0.772652,
+      "Box-F1": 0.736928,
+      "mAP50": 0.767782,
+      "mAP50-95": 0.452701
+    }
+  ],
+  "speed": {
+    "preprocess": 0.9993593906812408,
+    "inference": 2.671460546361251,
+    "loss": 0.0006034147923619016,
+    "postprocess": 0.3608865026080319
+  },
+  "runtime_seconds": 7.094
+}

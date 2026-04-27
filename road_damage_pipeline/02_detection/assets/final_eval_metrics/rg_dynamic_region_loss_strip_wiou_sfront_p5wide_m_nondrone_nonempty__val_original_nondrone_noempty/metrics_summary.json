@@ -1,0 +1,66 @@
+{
+  "task_name": "Dynamic + Strip + WIoU sfront-p5wide m__val_original_nondrone_noempty",
+  "model_family": "deep_channel_sfront_p5wide_m",
+  "model_name": "Dynamic + Strip + WIoU sfront-p5wide m",
+  "scale": "m",
+  "dataset_protocol": "original_nondrone_noempty",
+  "split": "val",
+  "weight_path": "runs_final/deduped_runs/rdd2022_nondrone_nonempty_rg_dynamic_region_loss_strip_wiou_sfront_p5wide_m/rg_dynamic_region_loss_strip_wiou_sfront_p5wide_m_nondrone_nonempty/weights/best.pt",
+  "save_dir": "/root/autodl-tmp/source_only_clean_20260401/runs_final/local_retest/final_eval/rg_dynamic_region_loss_strip_wiou_sfront_p5wide_m_nondrone_nonempty__val_original_nondrone_noempty",
+  "overall": {
+    "metrics/precision(B)": 0.6924250425635825,
+    "metrics/recall(B)": 0.6259029581153193,
+    "metrics/mAP50(B)": 0.6699761699689151,
+    "metrics/mAP50-95(B)": 0.37239323062895774,
+    "fitness": 0.37239323062895774
+  },
+  "per_class": [
+    {
+      "Class": "D00",
+      "Images": 1859,
+      "Instances": 3678,
+      "Box-P": 0.664012,
+      "Box-R": 0.54758,
+      "Box-F1": 0.600202,
+      "mAP50": 0.59926,
+      "mAP50-95": 0.336253
+    },
+    {
+      "Class": "D10",
+      "Images": 1010,
+      "Instances": 1585,
+      "Box-P": 0.657079,
+      "Box-R": 0.529338,
+      "Box-F1": 0.586331,
+      "mAP50": 0.572263,
+      "mAP50-95": 0.273498
+    },
+    {
+      "Class": "D20",
+      "Images": 1186,
+      "Instances": 1511,
+      "Box-P": 0.726506,
+      "Box-R": 0.654533,
+      "Box-F1": 0.688644,
+      "mAP50": 0.706383,
+      "mAP50-95": 0.384491
+    },
+    {
+      "Class": "D40",
+      "Images": 1005,
+      "Instances": 1444,
+      "Box-P": 0.722104,
+      "Box-R": 0.772161,
+      "Box-F1": 0.746294,
+      "mAP50": 0.801999,
+      "mAP50-95": 0.495331
+    }
+  ],
+  "speed": {
+    "preprocess": 0.9280918437300377,
+    "inference": 7.073174755462446,
+    "loss": 0.00068283508054717,
+    "postprocess": 0.3669711619519107
+  },
+  "runtime_seconds": 33.58
+}

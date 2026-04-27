@@ -1,0 +1,12 @@
+image_name,box_index,class_name,crop_width_px,crop_height_px,fastsam_prompt,fastsam_status,fastsam_mask_count,fastsam_selected_index,fastsam_selected_mask_pixels,fastsam_selected_mask_ratio,fastsam_failure_reason,fastsam_time_s,note
+United_States_000200.jpg,0,D00,86,204,crack,success,1,0,9858,0.561902,,5.779817,No area is computed; these are crop segmentation quality diagnostics.
+United_States_003196.jpg,0,D00,246,207,crack,success,1,0,929,0.018244,,0.613468,No area is computed; these are crop segmentation quality diagnostics.
+United_States_001950.jpg,0,D10,389,93,crack,failed,1,-1,0,0.0,no_valid_mask;mask0:ratio_too_large:0.9506,0.720911,No area is computed; these are crop segmentation quality diagnostics.
+United_States_001532.jpg,0,D10,366,66,crack,success,1,0,12194,0.504802,,1.181608,No area is computed; these are crop segmentation quality diagnostics.
+United_States_002330.jpg,0,D20,528,256,crack,success,1,0,27945,0.206743,,1.041768,No area is computed; these are crop segmentation quality diagnostics.
+United_States_004171.jpg,0,D20,158,192,crack,success,1,0,623,0.020537,,1.13834,No area is computed; these are crop segmentation quality diagnostics.
+Japan_001608.jpg,0,D40,295,281,road damage,success,1,0,39702,0.478943,,2.047868,No area is computed; these are crop segmentation quality diagnostics.
+Japan_001608.jpg,1,D40,101,30,road damage,success,1,0,2154,0.710891,,2.451059,No area is computed; these are crop segmentation quality diagnostics.
+Japan_006310.jpg,0,D40,123,66,road damage,success,1,0,6874,0.84676,,2.121864,No area is computed; these are crop segmentation quality diagnostics.
+Norway_004657.jpg,0,D00,343,899,crack,success,1,0,254614,0.825712,,1.479832,No area is computed; these are crop segmentation quality diagnostics.
+Norway_004021.jpg,0,D10,1925,116,crack,failed,0,-1,0,0.0,no_valid_mask;,0.771153,No area is computed; these are crop segmentation quality diagnostics.

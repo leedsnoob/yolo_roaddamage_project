@@ -1,0 +1,17 @@
+class_name,method,method_label,num_boxes,success_count,fallback_count,assumption_count,mean_area_m2,median_area_m2,min_area_m2,max_area_m2
+D00,M1_empirical_bbox,M1 Empirical bbox,3,3,0,0,3.493333,1.656000,1.632000,7.192000
+D00,M2_fastsam_mask,M2 FastSAM mask,3,3,0,0,8.846700,0.985800,0.092900,25.461400
+D00,M3_depth_anything_v2_empirical_bbox,M3 Depth Anything V2,3,3,0,3,12.743254,13.445993,3.346548,21.437220
+D00,M4_metric3d_empirical_bbox,M4 Metric3D,3,3,0,3,2.208838,2.134403,1.322311,3.169799
+D10,M1_empirical_bbox,M1 Empirical bbox,3,3,0,0,10.720000,4.668000,4.392000,23.100000
+D10,M2_fastsam_mask,M2 FastSAM mask,3,3,2,0,9.055700,3.617700,1.219400,22.330000
+D10,M3_depth_anything_v2_empirical_bbox,M3 Depth Anything V2,3,3,0,3,25.415319,32.785323,3.516624,39.944009
+D10,M4_metric3d_empirical_bbox,M4 Metric3D,3,3,0,3,3.825247,4.687925,1.368879,5.418937
+D20,M1_empirical_bbox,M1 Empirical bbox,2,2,0,0,2.758400,2.758400,1.011200,4.505600
+D20,M2_fastsam_mask,M2 FastSAM mask,2,2,0,0,1.428400,1.428400,0.062300,2.794500
+D20,M3_depth_anything_v2_empirical_bbox,M3 Depth Anything V2,2,2,0,2,31.284404,31.284404,12.344073,50.224735
+D20,M4_metric3d_empirical_bbox,M4 Metric3D,2,2,0,2,5.060378,5.060378,1.861682,8.259075
+D40,M1_empirical_bbox,M1 Empirical bbox,3,3,0,0,1.044922,0.270600,0.101000,2.763167
+D40,M2_fastsam_mask,M2 FastSAM mask,3,3,0,0,1.624333,0.687400,0.215400,3.970200
+D40,M3_depth_anything_v2_empirical_bbox,M3 Depth Anything V2,3,3,0,3,26.432468,8.427678,1.006824,69.862902
+D40,M4_metric3d_empirical_bbox,M4 Metric3D,3,3,0,3,3.871831,1.474417,0.170124,9.970951

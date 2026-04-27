@@ -1,0 +1,27 @@
+video: road_damage_pipeline/03_video_dedup/samples/videos/3_dense_130_190.mp4
+weights: road_damage_pipeline/03_video_dedup/weights/yolo11s_original_nondrone_noempty_best.pt
+repo_root: ultralytics_yolo11_final
+output_root: road_damage_pipeline/03_video_dedup/outputs
+device: auto
+imgsz: 832
+conf: 0.25
+iou: 0.50
+tracker_backend: bytetrack
+tracker: bytetrack.yaml
+dedup_mode: track_only
+homography_config:
+compare_trackers: false
+stride: 1
+max_frames: 0
+save_video: true
+render_mode: analysis
+track_iou_thresh: 0.30
+track_max_gap: 8
+warmup_frames: 2
+render_hold_frames: 0
+fragmentation_gap_frames: 15
+fragmentation_iou_threshold: 0.5
+deepocsort_max_age: 30
+deepocsort_min_hits: 1
+deepocsort_delta_t: 3
+deepocsort_inertia: 0.2

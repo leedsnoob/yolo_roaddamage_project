@@ -1,0 +1,18 @@
+repo_root: ultralytics_yolo11_final
+model: ultralytics_yolo11_final/ultralytics/cfg/models/11/yolo11-rg.yaml
+pretrained:
+data: runs_final/eval_protocols/rdd2022_original_nondrone_noempty.yaml
+project: road_damage_pipeline/02_detection/outputs/train
+name: debug_train
+epochs: 100
+batch: 16
+imgsz: 832
+device: auto
+workers: 8
+optimizer: auto
+lr0: 0.01
+lrf: 0.01
+close_mosaic: 10
+mosaic: 1.0
+patience: 50
+seed: 0

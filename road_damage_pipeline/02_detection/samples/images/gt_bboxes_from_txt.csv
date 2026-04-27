@@ -1,0 +1,12 @@
+image_name,target_class_for_selected_image,box_index,class_id,class_name,country,image_width_px,image_height_px,x1,y1,x2,y2,bbox_width_px,bbox_height_px,bbox_area_px2,source
+United_States_000200.jpg,D00,0,0,D00,United_States,640,640,378,404,464,608,86,204,17544,RDD_txt_GT
+United_States_003196.jpg,D00,0,0,D00,United_States,640,640,384,388,630,595,246,207,50922,RDD_txt_GT
+United_States_001950.jpg,D10,0,1,D10,United_States,640,640,4,449,393,542,389,93,36177,RDD_txt_GT
+United_States_001532.jpg,D10,0,1,D10,United_States,640,640,73,448,439,514,366,66,24156,RDD_txt_GT
+United_States_002330.jpg,D20,0,2,D20,United_States,640,640,1,381,529,637,528,256,135168,RDD_txt_GT
+United_States_004171.jpg,D20,0,2,D20,United_States,640,640,328,390,486,582,158,192,30336,RDD_txt_GT
+Japan_001608.jpg,D40,0,3,D40,Japan,600,600,256,309,551,590,295,281,82895,RDD_txt_GT
+Japan_001608.jpg,D40,1,3,D40,Japan,600,600,497,437,598,467,101,30,3030,RDD_txt_GT
+Japan_006310.jpg,D40,0,3,D40,Japan,600,600,423,466,546,532,123,66,8118,RDD_txt_GT
+Norway_004657.jpg,D00,0,0,D00,Norway,3643,2041,1132,1136,1475,2035,343,899,308357,RDD_txt_GT
+Norway_004021.jpg,D10,0,1,D10,Norway,3643,2041,0,1575,1925,1691,1925,116,223300,RDD_txt_GT

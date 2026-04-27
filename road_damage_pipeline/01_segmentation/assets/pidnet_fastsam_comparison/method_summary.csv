@@ -1,0 +1,4 @@
+method,n_images,prompt,device,mean_time_s,median_time_s,mean_mask_count,mean_coverage_ratio,mean_component_count,mean_largest_component_ratio
+PIDNet semantic,12,none; semantic road class id 0,mps,1.096596,0.173285,1.0,0.399893,11.25,0.986872
+FastSAM all,12,none; segment-all,mps,0.543458,0.459276,122.333333,0.818037,8.75,0.979396
+FastSAM text road,12,road,mps,2.258726,1.656721,1.0,0.315575,5.166667,0.989242

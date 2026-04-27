@@ -1,0 +1,4 @@
+tracker_backend,inference_fps,total_detections,unique_track_events,fragmentation_proxy,mean_hits_per_event,detection_counts_by_class,unique_counts_by_class,summary_json
+bytetrack,11.019,728,582,218,1.251,"{""D40"": 287, ""D00"": 246, ""D10"": 26, ""D20"": 169}","{""D40"": 244, ""D00"": 232, ""D10"": 26, ""D20"": 80}",video_damage_analytics/outputs/dedup_case_study_yolo11s/3_dense_130_190/bytetrack/track_only/summary.json
+botsort,8.957,741,627,335,1.182,"{""D40"": 292, ""D00"": 256, ""D10"": 26, ""D20"": 167}","{""D40"": 253, ""D00"": 244, ""D10"": 26, ""D20"": 104}",video_damage_analytics/outputs/dedup_case_study_yolo11s/3_dense_130_190/botsort/track_only/summary.json
+deepocsort,7.602,809,430,33,1.881,"{""D40"": 322, ""D00"": 283, ""D10"": 28, ""D20"": 176}","{""D40"": 172, ""D00"": 189, ""D10"": 28, ""D20"": 41}",video_damage_analytics/outputs/dedup_case_study_yolo11s/3_dense_130_190/deepocsort/track_only/summary.json

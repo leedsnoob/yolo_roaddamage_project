@@ -1,0 +1,66 @@
+{
+  "task_name": "YOLO11n__val_original_nondrone_noempty",
+  "model_family": "yolo11",
+  "model_name": "YOLO11n",
+  "scale": "n",
+  "dataset_protocol": "original_nondrone_noempty",
+  "split": "val",
+  "weight_path": "runs_final/deduped_runs/rdd2022_aggregate_noempty_experiments/original_nondrone_noempty_yolo11n/weights/best.pt",
+  "save_dir": "/root/autodl-tmp/source_only_clean_20260401/runs_final/local_retest/final_eval/original_nondrone_noempty_yolo11n__test_original_noempty__val_original_nondrone_noempty",
+  "overall": {
+    "metrics/precision(B)": 0.6668010052101759,
+    "metrics/recall(B)": 0.6066201387529908,
+    "metrics/mAP50(B)": 0.6485689754589428,
+    "metrics/mAP50-95(B)": 0.35771124166030616,
+    "fitness": 0.35771124166030616
+  },
+  "per_class": [
+    {
+      "Class": "Longitudinal Crack",
+      "Images": 1859,
+      "Instances": 3678,
+      "Box-P": 0.653003,
+      "Box-R": 0.532898,
+      "Box-F1": 0.586869,
+      "mAP50": 0.583369,
+      "mAP50-95": 0.325868
+    },
+    {
+      "Class": "Transverse Crack",
+      "Images": 1010,
+      "Instances": 1585,
+      "Box-P": 0.603922,
+      "Box-R": 0.49653,
+      "Box-F1": 0.544986,
+      "mAP50": 0.546585,
+      "mAP50-95": 0.257252
+    },
+    {
+      "Class": "Alligator Crack",
+      "Images": 1186,
+      "Instances": 1511,
+      "Box-P": 0.704801,
+      "Box-R": 0.636664,
+      "Box-F1": 0.669002,
+      "mAP50": 0.688004,
+      "mAP50-95": 0.37245
+    },
+    {
+      "Class": "Pothole",
+      "Images": 1005,
+      "Instances": 1444,
+      "Box-P": 0.705478,
+      "Box-R": 0.760388,
+      "Box-F1": 0.731904,
+      "mAP50": 0.776318,
+      "mAP50-95": 0.475275
+    }
+  ],
+  "speed": {
+    "preprocess": 0.9298726508602672,
+    "inference": 0.9609434745984415,
+    "loss": 0.000586732674009767,
+    "postprocess": 0.3587706362492689
+  },
+  "runtime_seconds": 17.801
+}

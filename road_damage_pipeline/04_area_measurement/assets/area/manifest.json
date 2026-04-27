@@ -1,0 +1,19 @@
+{
+  "input_gt_csv": "/Users/tomchen/Downloads/source_only_clean_20260401/area_experiments/selected_rdd_test_lane_countries/final_selection/gt_bboxes_from_txt.csv",
+  "source_m1_m2_m3_csv": "/Users/tomchen/Downloads/source_only_clean_20260401/area_experiments/area_measurement_v1/area_results.csv",
+  "source_m4_csv": "/Users/tomchen/Downloads/source_only_clean_20260401/area_experiments/area_measurement_v1/metric3d_trial/metric3d_area_results.csv",
+  "output_root": "/Users/tomchen/Downloads/source_only_clean_20260401/road_damage_pipeline/04_area_measurement/assets/area",
+  "num_gt_boxes": 11,
+  "num_method_rows": 44,
+  "num_boards": 10,
+  "methods": [
+    "M1_empirical_bbox",
+    "M2_fastsam_mask",
+    "M3_depth_anything_v2_empirical_bbox",
+    "M4_metric3d_empirical_bbox"
+  ],
+  "visuals": {
+    "summary_table": "/Users/tomchen/Downloads/source_only_clean_20260401/road_damage_pipeline/04_area_measurement/assets/area/visuals/four_method_summary_table.png",
+    "four_method_boards_dir": "/Users/tomchen/Downloads/source_only_clean_20260401/road_damage_pipeline/04_area_measurement/assets/area/visuals/four_method_boards"
+  }
+}

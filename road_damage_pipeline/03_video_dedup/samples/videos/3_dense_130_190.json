@@ -1,0 +1,11 @@
+{
+  "segment_path": "video_damage_analytics/outputs/dedup_case_study_yolo11s/segments/3_dense_130_190.mp4",
+  "source_video": "3.mp4",
+  "start_s": 130.13,
+  "end_s": 190.13,
+  "fps": 23.976024727815332,
+  "start_frame": 3120,
+  "end_frame": 4559,
+  "frames_written": 1439,
+  "duration_s": 60.018
+}

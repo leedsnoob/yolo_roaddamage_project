@@ -1,0 +1,66 @@
+{
+  "task_name": "Dynamic + Strip + WIoU n__test_original_nondrone_noempty",
+  "model_family": "rg11_dynamic_strip_wiou",
+  "model_name": "Dynamic + Strip + WIoU n",
+  "scale": "n",
+  "dataset_protocol": "original_nondrone_noempty",
+  "split": "test",
+  "weight_path": "runs_final/deduped_runs/rdd2022_nondrone_nonempty_rg_dynamic_region_loss_strip_wiou/rg_dynamic_region_loss_strip_wiou_yolo11n_nondrone_nonempty/weights/best.pt",
+  "save_dir": "/root/autodl-tmp/source_only_clean_20260401/runs_final/local_retest/final_eval/dynamic_strip_wiou_n__test_original_nondrone_noempty",
+  "overall": {
+    "metrics/precision(B)": 0.6790750262456865,
+    "metrics/recall(B)": 0.6092051145953838,
+    "metrics/mAP50(B)": 0.6485900377513771,
+    "metrics/mAP50-95(B)": 0.35695553335712893,
+    "fitness": 0.35695553335712893
+  },
+  "per_class": [
+    {
+      "Class": "D00",
+      "Images": 1915,
+      "Instances": 3693,
+      "Box-P": 0.679646,
+      "Box-R": 0.533983,
+      "Box-F1": 0.598073,
+      "mAP50": 0.595745,
+      "mAP50-95": 0.332137
+    },
+    {
+      "Class": "D10",
+      "Images": 951,
+      "Instances": 1475,
+      "Box-P": 0.609447,
+      "Box-R": 0.524746,
+      "Box-F1": 0.563933,
+      "mAP50": 0.543597,
+      "mAP50-95": 0.260775
+    },
+    {
+      "Class": "D20",
+      "Images": 1172,
+      "Instances": 1493,
+      "Box-P": 0.706968,
+      "Box-R": 0.633448,
+      "Box-F1": 0.668192,
+      "mAP50": 0.694337,
+      "mAP50-95": 0.370458
+    },
+    {
+      "Class": "D40",
+      "Images": 1008,
+      "Instances": 1459,
+      "Box-P": 0.72024,
+      "Box-R": 0.744643,
+      "Box-F1": 0.732238,
+      "mAP50": 0.760681,
+      "mAP50-95": 0.464452
+    }
+  ],
+  "speed": {
+    "preprocess": 0.9484677660095112,
+    "inference": 2.66817284668302,
+    "loss": 0.0006329665406796411,
+    "postprocess": 0.36038612203774006
+  },
+  "runtime_seconds": 18.669
+}

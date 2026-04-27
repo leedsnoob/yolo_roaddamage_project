@@ -1,0 +1,16 @@
+{
+  "selected_images": 10,
+  "gt_boxes": 11,
+  "class_distribution_selected_images": {
+    "D00": 3,
+    "D10": 3,
+    "D20": 2,
+    "D40": 2
+  },
+  "country_distribution_selected_images": {
+    "Japan": 2,
+    "Norway": 2,
+    "United_States": 6
+  },
+  "selection_rule": "Original 8 samples kept; Norway_004657 D00 and Norway_004021 D10 appended; area calculation uses RDD txt GT bboxes."
+}

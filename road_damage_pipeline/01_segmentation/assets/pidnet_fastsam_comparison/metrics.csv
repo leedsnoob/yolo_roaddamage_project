@@ -1,0 +1,37 @@
+demo_id,image_name,method,prompt,device,imgsz,conf,iou,inference_time_s,mask_count,mask_pixels,coverage_ratio,component_count,largest_component_ratio
+D002,Czech_000201.jpg,PIDNet semantic,none; semantic road class id 0,mps,,,,0.208855,1,96622,0.268394,2,0.999503
+D002,Czech_000201.jpg,FastSAM all,none; segment-all,mps,768,0.1,0.9,0.163616,111,295914,0.821983,18,0.988419
+D002,Czech_000201.jpg,FastSAM text road,road,mps,768,0.1,0.9,1.403594,1,46800,0.13,4,0.997842
+D005,Czech_000194.jpg,PIDNet semantic,none; semantic road class id 0,mps,,,,0.088458,1,115082,0.319672,3,0.977877
+D005,Czech_000194.jpg,FastSAM all,none; segment-all,mps,768,0.1,0.9,0.406483,113,287077,0.797436,14,0.992821
+D005,Czech_000194.jpg,FastSAM text road,road,mps,768,0.1,0.9,1.254562,1,111022,0.308394,2,0.999955
+D008,India_000090.jpg,PIDNet semantic,none; semantic road class id 0,mps,,,,0.740867,1,189144,0.364861,1,1.0
+D008,India_000090.jpg,FastSAM all,none; segment-all,mps,768,0.1,0.9,0.564414,183,397742,0.767249,2,0.999997
+D008,India_000090.jpg,FastSAM text road,road,mps,768,0.1,0.9,3.748565,1,84054,0.162141,7,0.951519
+D011,India_000118.jpg,PIDNet semantic,none; semantic road class id 0,mps,,,,0.137714,1,171948,0.33169,1,1.0
+D011,India_000118.jpg,FastSAM all,none; segment-all,mps,768,0.1,0.9,0.586965,240,372736,0.719012,10,0.900122
+D011,India_000118.jpg,FastSAM text road,road,mps,768,0.1,0.9,4.737351,1,4638,0.008947,2,0.98771
+D014,Japan_000035.jpg,PIDNet semantic,none; semantic road class id 0,mps,,,,0.109356,1,53305,0.148069,8,0.97488
+D014,Japan_000035.jpg,FastSAM all,none; segment-all,mps,768,0.1,0.9,0.276252,109,348795,0.968875,1,1.0
+D014,Japan_000035.jpg,FastSAM text road,road,mps,768,0.1,0.9,1.217493,1,158732,0.440922,11,0.995798
+D017,Japan_000076.jpg,PIDNet semantic,none; semantic road class id 0,mps,,,,0.11664,1,234914,0.652539,4,0.995756
+D017,Japan_000076.jpg,FastSAM all,none; segment-all,mps,768,0.1,0.9,0.423195,111,332611,0.923919,3,0.999856
+D017,Japan_000076.jpg,FastSAM text road,road,mps,768,0.1,0.9,1.909847,1,200107,0.555853,8,0.993573
+D020,Norway_000031.jpg,PIDNet semantic,none; semantic road class id 0,mps,,,,5.475912,1,2176375,0.264721,54,0.928331
+D020,Norway_000031.jpg,FastSAM all,none; segment-all,mps,768,0.1,0.9,1.372311,113,7418348,0.902322,4,0.999633
+D020,Norway_000031.jpg,FastSAM text road,road,mps,768,0.1,0.9,4.48483,1,1777338,0.216184,3,0.99093
+D023,Norway_000059.jpg,PIDNet semantic,none; semantic road class id 0,mps,,,,4.764985,1,1471315,0.178962,44,0.970606
+D023,Norway_000059.jpg,FastSAM all,none; segment-all,mps,768,0.1,0.9,0.265395,65,7351455,0.894185,3,0.999961
+D023,Norway_000059.jpg,FastSAM text road,road,mps,768,0.1,0.9,3.062495,1,1322948,0.160915,4,0.999392
+D026,United_States_000046.jpg,PIDNet semantic,none; semantic road class id 0,mps,,,,0.413747,1,151037,0.368743,6,0.997511
+D026,United_States_000046.jpg,FastSAM all,none; segment-all,mps,768,0.1,0.9,0.495356,59,280953,0.68592,19,0.977484
+D026,United_States_000046.jpg,FastSAM text road,road,mps,768,0.1,0.9,0.83254,1,134857,0.329241,3,0.999577
+D029,United_States_000083.jpg,PIDNet semantic,none; semantic road class id 0,mps,,,,0.079679,1,150511,0.367458,2,0.999635
+D029,United_States_000083.jpg,FastSAM all,none; segment-all,mps,768,0.1,0.9,0.744777,162,306135,0.7474,2,0.998791
+D029,United_States_000083.jpg,FastSAM text road,road,mps,768,0.1,0.9,1.950805,1,136132,0.332354,8,0.954963
+D032,China_MotorBike_000036.jpg,PIDNet semantic,none; semantic road class id 0,mps,,,,0.942446,1,204533,0.780231,7,0.998401
+D032,China_MotorBike_000036.jpg,FastSAM all,none; segment-all,mps,768,0.1,0.9,0.279878,113,195487,0.745724,15,0.950774
+D032,China_MotorBike_000036.jpg,FastSAM text road,road,mps,768,0.1,0.9,1.284443,1,152357,0.581196,9,0.999646
+D035,China_MotorBike_000160.jpg,PIDNet semantic,none; semantic road class id 0,mps,,,,0.080498,1,197493,0.753376,3,0.999959
+D035,China_MotorBike_000160.jpg,FastSAM all,none; segment-all,mps,768,0.1,0.9,0.942853,89,220836,0.842422,14,0.944896
+D035,China_MotorBike_000160.jpg,FastSAM text road,road,mps,768,0.1,0.9,1.218182,1,146999,0.560757,1,1.0

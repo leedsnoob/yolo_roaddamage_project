@@ -1,0 +1,11 @@
+repo_root: ultralytics_yolo11_final
+weights: road_damage_pipeline/02_detection/weights/yolo11s_original_nondrone_noempty_best.pt
+data: runs_final/eval_protocols/rdd2022_original_nondrone_noempty.yaml
+split: test
+project: road_damage_pipeline/02_detection/outputs/eval
+name: yolo11s_test_original_nondrone_noempty
+imgsz: 832
+conf: 0.001
+iou: 0.7
+device: auto
+save_json: false

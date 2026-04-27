@@ -1,0 +1,66 @@
+{
+  "task_name": "RG11 + DCNv2 + BiFPN n__test_original_nondrone_noempty",
+  "model_family": "rg11_dcn_bifpn",
+  "model_name": "RG11 + DCNv2 + BiFPN n",
+  "scale": "n",
+  "dataset_protocol": "original_nondrone_noempty",
+  "split": "test",
+  "weight_path": "runs_final/deduped_runs/rdd2022_nondrone_nonempty_rg_compare/rg_dcn_bifpn_yolo11n_nondrone_nonempty/weights/best.pt",
+  "save_dir": "/root/autodl-tmp/source_only_clean_20260401/runs_final/local_retest/final_eval/dcn_bifpn_n__test_original_nondrone_noempty",
+  "overall": {
+    "metrics/precision(B)": 0.6836325682848877,
+    "metrics/recall(B)": 0.6020438271458651,
+    "metrics/mAP50(B)": 0.6450488784293944,
+    "metrics/mAP50-95(B)": 0.3554337579022024,
+    "fitness": 0.3554337579022024
+  },
+  "per_class": [
+    {
+      "Class": "D00",
+      "Images": 1915,
+      "Instances": 3693,
+      "Box-P": 0.65726,
+      "Box-R": 0.531213,
+      "Box-F1": 0.587552,
+      "mAP50": 0.586672,
+      "mAP50-95": 0.330752
+    },
+    {
+      "Class": "D10",
+      "Images": 951,
+      "Instances": 1475,
+      "Box-P": 0.647798,
+      "Box-R": 0.517966,
+      "Box-F1": 0.575652,
+      "mAP50": 0.553594,
+      "mAP50-95": 0.265454
+    },
+    {
+      "Class": "D20",
+      "Images": 1172,
+      "Instances": 1493,
+      "Box-P": 0.713813,
+      "Box-R": 0.624246,
+      "Box-F1": 0.666032,
+      "mAP50": 0.693527,
+      "mAP50-95": 0.368512
+    },
+    {
+      "Class": "D40",
+      "Images": 1008,
+      "Instances": 1459,
+      "Box-P": 0.71566,
+      "Box-R": 0.73475,
+      "Box-F1": 0.725079,
+      "mAP50": 0.746402,
+      "mAP50-95": 0.457018
+    }
+  ],
+  "speed": {
+    "preprocess": 0.9334511404576606,
+    "inference": 2.6610347998285406,
+    "loss": 0.0006601696710664763,
+    "postprocess": 0.36030731588933784
+  },
+  "runtime_seconds": 18.486
+}

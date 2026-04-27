@@ -1,0 +1,7 @@
+dataset_protocol,split,source_txt,local_txt,image_count
+original_nondrone_noempty,train,RDD2022/sampling/noempty_aggregates/original_nondrone_noempty/train.txt,runs_final/eval_protocols/original_nondrone_noempty_train.txt,16259
+original_nondrone_noempty,val,RDD2022/sampling/noempty_aggregates/original_nondrone_noempty/val.txt,runs_final/eval_protocols/original_nondrone_noempty_val.txt,3399
+original_nondrone_noempty,test,RDD2022/sampling/noempty_aggregates/original_nondrone_noempty/test.txt,runs_final/eval_protocols/original_nondrone_noempty_test.txt,3414
+japan_original_noempty,train,RDD2022/sampling/noempty_domains/original/Japan/train.txt,runs_final/eval_protocols/japan_original_noempty_train.txt,6684
+japan_original_noempty,val,RDD2022/sampling/noempty_domains/original/Japan/val.txt,runs_final/eval_protocols/japan_original_noempty_val.txt,1378
+japan_original_noempty,test,RDD2022/sampling/noempty_domains/original/Japan/test.txt,runs_final/eval_protocols/japan_original_noempty_test.txt,1359
