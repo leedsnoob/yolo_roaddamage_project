@@ -30,3 +30,30 @@ This module solves cross-frame duplicate counting. It does not solve duplicate b
 
 本模块解决跨帧重复计数，不解决单张图内部多个重复框的问题。
 
+## Usage / 使用
+
+Run the 60-second demo clip with ByteTrack:
+
+使用 ByteTrack 运行 60 秒 demo 视频：
+
+```bash
+python road_damage_pipeline/03_video_dedup/scripts/infer_video.py \
+  --video road_damage_pipeline/03_video_dedup/samples/videos/3_dense_130_190.mp4 \
+  --weights road_damage_pipeline/03_video_dedup/weights/yolo11s_original_nondrone_noempty_best.pt \
+  --repo-root ultralytics_yolo11_final \
+  --tracker-backend bytetrack \
+  --dedup-mode track_only \
+  --save-video
+```
+
+Build tracker comparison visuals:
+
+生成 tracker 对比可视化：
+
+```bash
+python road_damage_pipeline/03_video_dedup/scripts/build_dedup_visuals.py
+```
+
+The report module uses the video summary, detections, track events, and three high-density representative frames from this module.
+
+报告模块读取本模块的视频 summary、detections、track events，并选取 3 张病害密集代表帧。

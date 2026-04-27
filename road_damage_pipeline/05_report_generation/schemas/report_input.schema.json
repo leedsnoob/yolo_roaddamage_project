@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RoadDamageReportInput",
+  "type": "object",
+  "required": [
+    "inspection_id",
+    "source",
+    "model",
+    "damage_summary",
+    "events",
+    "limitations"
+  ],
+  "properties": {
+    "inspection_id": {
+      "type": "string"
+    },
+    "source": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["image_set", "video"]
+        },
+        "path": {
+          "type": "string"
+        },
+        "duration_s": {
+          "type": ["number", "null"]
+        },
+        "fps": {
+          "type": ["number", "null"]
+        }
+      }
+    },
+    "model": {
+      "type": "object",
+      "properties": {
+        "detector_name": {
+          "type": "string"
+        },
+        "weights_path": {
+          "type": "string"
+        },
+        "tracker_backend": {
+          "type": ["string", "null"]
+        },
+        "area_methods": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "dataset_protocol": {
+      "type": ["string", "null"]
+    },
+    "damage_summary": {
+      "type": "object",
+      "properties": {
+        "total_detections": {
+          "type": ["integer", "null"]
+        },
+        "unique_events": {
+          "type": ["integer", "null"]
+        },
+        "counts_by_class": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["event_id", "class_name"],
+        "properties": {
+          "event_id": {
+            "type": "string"
+          },
+          "class_name": {
+            "type": "string",
+            "enum": ["D00", "D10", "D20", "D40"]
+          },
+          "first_timestamp_s": {
+            "type": ["number", "null"]
+          },
+          "last_timestamp_s": {
+            "type": ["number", "null"]
+          },
+          "max_confidence": {
+            "type": ["number", "null"]
+          },
+          "area_estimates": {
+            "type": "object",
+            "additionalProperties": {
+              "type": ["number", "null"]
+            }
+          },
+          "evidence_images": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "visual_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "caption": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

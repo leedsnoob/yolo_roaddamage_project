@@ -19,6 +19,28 @@ This module contains area-estimation evidence based on selected RDD images and G
 - `M3`: Depth Anything V2 depth inside bbox + senior empirical bbox ratio.
 - `M4`: Metric3D depth inside bbox + senior empirical bbox ratio.
 
+The formal report demo passes `M1`, `M3`, and `M4` to Qwen. `M2` is kept as evidence that FastSAM was explored but is not used as the formal report area input.
+
+正式报告 demo 会把 `M1`、`M3`、`M4` 传给 Qwen。`M2` 保留为 FastSAM 探索证据，不作为正式报告面积输入。
+
+## Usage / 使用
+
+Rebuild packaged area evidence:
+
+重新生成打包面积证据：
+
+```bash
+python road_damage_pipeline/04_area_measurement/scripts/build_area_pipeline_v1.py
+```
+
+Rebuild FastSAM crop diagnostics:
+
+重新生成 FastSAM 裁剪诊断图：
+
+```bash
+python road_damage_pipeline/04_area_measurement/scripts/build_crop_segmentation_quality.py
+```
+
 ## Boundary / 边界
 
 The current default scale is `0.01 m/px`. No lane-line calibration is applied in the packaged result. All numbers are estimated areas, not physical ground truth.
