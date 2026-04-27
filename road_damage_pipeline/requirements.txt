@@ -9,3 +9,10 @@ scipy
 filterpy
 lap>=0.5.12
 requests
+fastapi
+uvicorn[standard]
+pydantic
+python-multipart
+aiofiles
+httpx
+pytest

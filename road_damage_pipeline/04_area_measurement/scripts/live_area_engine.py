@@ -4,7 +4,7 @@
 This module is used by report generation. It intentionally does not use
 FastSAM and does not use packaged per-class ratios. M3 and M4 run the actual
 Depth Anything V2 / Metric3D depth models over the input image, then compute a
-bbox-rectangle depth area corrected by the senior empirical bbox prior.
+bbox-rectangle depth area corrected by the bbox empirical prior.
 """
 
 from __future__ import annotations
@@ -94,7 +94,7 @@ def class_name(class_id: int) -> str:
 
 
 def empirical_m1_area(class_id: int, width_px: float, height_px: float, scale_factor: float) -> tuple[float, float, float]:
-    """Senior empirical bbox rule used as the baseline area estimate."""
+    """Class-specific bbox rule used as the baseline area estimate."""
     width_m = max(width_px, 0.0) * scale_factor
     height_m = max(height_px, 0.0) * scale_factor
     if int(class_id) == 0:
@@ -129,6 +129,27 @@ def bbox_mask(shape_hw: tuple[int, int], bbox_xyxy: list[float]) -> np.ndarray:
     return mask
 
 
+def normalize_depth_for_display(depth: np.ndarray) -> np.ndarray:
+    """Convert metric depth to a stable false-color visualization."""
+    valid = depth[np.isfinite(depth) & (depth > 0)]
+    if valid.size == 0:
+        return np.zeros((*depth.shape[:2], 3), dtype=np.uint8)
+    low, high = np.percentile(valid, [2, 98])
+    if high <= low:
+        high = low + 1e-6
+    normalized = np.clip((depth - low) / (high - low), 0, 1)
+    gray = (normalized * 255).astype(np.uint8)
+    return cv2.applyColorMap(gray, cv2.COLORMAP_INFERNO)
+
+
+def draw_bbox(image: np.ndarray, box: BBoxSpec, label: str) -> None:
+    x1, y1, x2, y2 = [int(round(v)) for v in box.bbox_xyxy]
+    color = (0, 255, 255) if int(box.class_id) == 0 else (255, 255, 0) if int(box.class_id) == 1 else (0, 255, 0) if int(box.class_id) == 2 else (0, 128, 255)
+    cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
+    cv2.rectangle(image, (x1, max(0, y1 - 22)), (min(image.shape[1] - 1, x1 + 160), y1), color, -1)
+    cv2.putText(image, label, (x1 + 3, max(14, y1 - 6)), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (0, 0, 0), 1, cv2.LINE_AA)
+
+
 def depth_area(depth: np.ndarray, mask: np.ndarray, horizontal_fov_deg: float) -> tuple[float, float]:
     values = depth[(mask > 0) & np.isfinite(depth) & (depth > 0)]
     if values.size == 0:
@@ -160,6 +181,8 @@ class DepthAnythingRunner:
             sys.path.insert(0, str(metric_root))
         try:
             from depth_anything_v2.dpt import DepthAnythingV2
+            from depth_anything_v2.util.transform import NormalizeImage, PrepareForNet, Resize
+            from torchvision.transforms import Compose
         except Exception as exc:  # noqa: BLE001
             raise RuntimeError(f"Failed to import Depth Anything V2 from {metric_root}: {type(exc).__name__}: {exc}") from exc
 
@@ -168,6 +191,33 @@ class DepthAnythingRunner:
         }
         model = DepthAnythingV2(**{**model_configs["vits"], "max_depth": 80})
         model.load_state_dict(torch.load(self.config.depth_checkpoint, map_location="cpu"))
+        device = self.device
+
+        def image2tensor_on_configured_device(self_model: Any, raw_image: np.ndarray, input_size: int = 518):
+            transform = Compose(
+                [
+                    Resize(
+                        width=input_size,
+                        height=input_size,
+                        resize_target=False,
+                        keep_aspect_ratio=True,
+                        ensure_multiple_of=14,
+                        resize_method="lower_bound",
+                        image_interpolation_method=cv2.INTER_CUBIC,
+                    ),
+                    NormalizeImage(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                    PrepareForNet(),
+                ]
+            )
+            h, w = raw_image.shape[:2]
+            image = cv2.cvtColor(raw_image, cv2.COLOR_BGR2RGB) / 255.0
+            image = transform({"image": image})["image"]
+            image = torch.from_numpy(image).unsqueeze(0).to(device)
+            return image, (h, w)
+
+        # Upstream Depth Anything V2 hard-codes cuda/mps inside image2tensor().
+        # Patch it so explicit --device cpu really keeps both input and weights on CPU.
+        model.image2tensor = types.MethodType(image2tensor_on_configured_device, model)
         self.model = model.to(self.device).eval()
 
     def infer(self, image_bgr: np.ndarray) -> np.ndarray:
@@ -285,6 +335,93 @@ class LiveAreaEngine:
             for box in boxes
         }
 
+    def estimate_image_with_visuals(
+        self,
+        image_path: Path,
+        boxes: list[BBoxSpec],
+        visual_output_dir: Path,
+    ) -> tuple[dict[str, list[dict[str, Any]]], dict[str, str]]:
+        """Estimate areas and write depth/area visual evidence for one image."""
+        image = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
+        if image is None:
+            raise RuntimeError(f"Failed to read image for live area estimation: {image_path}")
+        visual_output_dir.mkdir(parents=True, exist_ok=True)
+        if not boxes:
+            return {}, {}
+
+        depth_anything_depth = self.depth_anything.infer(image)
+        metric3d_depth = self.metric3d.infer(image)
+        estimates = {
+            box.item_id: self._estimate_box(box, image.shape[:2], depth_anything_depth, metric3d_depth)
+            for box in boxes
+        }
+
+        stem = image_path.stem
+        depth_anything_vis = normalize_depth_for_display(depth_anything_depth)
+        metric3d_vis = normalize_depth_for_display(metric3d_depth)
+        bbox_vis = image.copy()
+        for box in boxes:
+            label = f"{class_code(box.class_id)} {box.confidence:.2f}"
+            draw_bbox(bbox_vis, box, label)
+            draw_bbox(depth_anything_vis, box, label)
+            draw_bbox(metric3d_vis, box, label)
+
+        depth_anything_path = visual_output_dir / f"{stem}_depth_anything.jpg"
+        metric3d_path = visual_output_dir / f"{stem}_metric3d.jpg"
+        board_path = visual_output_dir / f"{stem}_area_board.jpg"
+        cv2.imwrite(str(depth_anything_path), depth_anything_vis)
+        cv2.imwrite(str(metric3d_path), metric3d_vis)
+        cv2.imwrite(str(board_path), self._make_area_board(bbox_vis, depth_anything_vis, metric3d_vis, boxes, estimates, stem))
+        return estimates, {
+            "depth_anything": str(depth_anything_path),
+            "metric3d": str(metric3d_path),
+            "area_board": str(board_path),
+        }
+
+    def _make_area_board(
+        self,
+        bbox_vis: np.ndarray,
+        depth_anything_vis: np.ndarray,
+        metric3d_vis: np.ndarray,
+        boxes: list[BBoxSpec],
+        estimates: dict[str, list[dict[str, Any]]],
+        title: str,
+    ) -> np.ndarray:
+        panel_w, panel_h = 520, 390
+
+        def resize_panel(img: np.ndarray) -> np.ndarray:
+            return cv2.resize(img, (panel_w, panel_h), interpolation=cv2.INTER_AREA)
+
+        bbox_panel = resize_panel(bbox_vis)
+        da_panel = resize_panel(depth_anything_vis)
+        metric_panel = resize_panel(metric3d_vis)
+        text_panel = np.full((panel_h, panel_w, 3), 245, dtype=np.uint8)
+        cv2.rectangle(text_panel, (0, 0), (panel_w, 28), (255, 255, 255), -1)
+        cv2.putText(text_panel, "Area estimates", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.56, (0, 0, 0), 1, cv2.LINE_AA)
+        cv2.putText(text_panel, f"{title}: estimated area", (18, 58), cv2.FONT_HERSHEY_SIMPLEX, 0.64, (20, 20, 20), 2, cv2.LINE_AA)
+        cv2.putText(text_panel, "M1=bbox empirical | M3=Depth Anything | M4=Metric3D", (18, 86), cv2.FONT_HERSHEY_SIMPLEX, 0.46, (70, 70, 70), 1, cv2.LINE_AA)
+        y = 118
+        for idx, box in enumerate(boxes[:12], start=1):
+            areas = estimates.get(box.item_id, [])
+            by_id = {row["method_id"]: row["estimated_area_m2"] for row in areas}
+            line = (
+                f"{idx:02d} {class_code(box.class_id)} conf={box.confidence:.2f} "
+                f"M1={by_id.get('M1', 0):.3f} M3={by_id.get('M3', 0):.3f} M4={by_id.get('M4', 0):.3f} m2"
+            )
+            cv2.putText(text_panel, line, (18, y), cv2.FONT_HERSHEY_SIMPLEX, 0.43, (30, 30, 30), 1, cv2.LINE_AA)
+            y += 24
+            if y > panel_h - 48:
+                remaining = len(boxes) - idx
+                if remaining > 0:
+                    cv2.putText(text_panel, f"... {remaining} more detections in CSV/JSON", (18, y), cv2.FONT_HERSHEY_SIMPLEX, 0.43, (30, 30, 30), 1, cv2.LINE_AA)
+                break
+        cv2.putText(text_panel, "All values are estimated, not physical ground truth.", (18, panel_h - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.46, (0, 0, 180), 1, cv2.LINE_AA)
+
+        for panel, label in ((bbox_panel, "Predicted bbox"), (da_panel, "Depth Anything V2"), (metric_panel, "Metric3D")):
+            cv2.rectangle(panel, (0, 0), (panel_w, 28), (255, 255, 255), -1)
+            cv2.putText(panel, label, (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.56, (0, 0, 0), 1, cv2.LINE_AA)
+        return np.vstack([np.hstack([bbox_panel, text_panel]), np.hstack([da_panel, metric_panel])])
+
     def _estimate_box(
         self,
         box: BBoxSpec,
@@ -318,7 +455,7 @@ class LiveAreaEngine:
         return [
             {
                 "method_id": "M1",
-                "method_name": "senior empirical bbox rule",
+                "method_name": "bbox empirical rule",
                 "estimated_area_m2": round(prior["m1_area_m2"], 6),
                 "status": "success",
                 "limitation": "bbox-based empirical estimate, not physical GT",

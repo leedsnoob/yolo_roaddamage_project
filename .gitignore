@@ -9,6 +9,10 @@ env/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+node_modules/
+road_damage_pipeline/web/frontend/node_modules/
+road_damage_pipeline/web/frontend/dist/
+*.tsbuildinfo
 
 build/
 dist/

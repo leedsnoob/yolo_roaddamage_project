@@ -20,6 +20,8 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 cv2 = None
 requests = None
 
@@ -192,6 +194,32 @@ def draw_box(frame, xyxy: list[float], class_id: int, label: str) -> None:
     )
 
 
+def write_predicted_review_grid(image_items: list[dict[str, Any]], out_path: Path) -> str:
+    """Write a raw-vs-predicted bbox review grid for quick human inspection."""
+    cv2_mod = require_cv2()
+    pairs = []
+    for item in image_items:
+        raw = cv2_mod.imread(str(item["raw_image"]))
+        pred = cv2_mod.imread(str(item["predicted_image"]))
+        if raw is not None and pred is not None:
+            pairs.append((item["image_name"], raw, pred))
+    if not pairs:
+        return ""
+
+    cell_w, cell_h = 360, 270
+    rows = []
+    for name, raw, pred in pairs:
+        raw = cv2_mod.resize(raw, (cell_w, cell_h), interpolation=cv2_mod.INTER_AREA)
+        pred = cv2_mod.resize(pred, (cell_w, cell_h), interpolation=cv2_mod.INTER_AREA)
+        for img, title in ((raw, f"RAW {name}"), (pred, f"PRED {name}")):
+            cv2_mod.rectangle(img, (0, 0), (cell_w, 28), (245, 245, 245), -1)
+            cv2_mod.putText(img, title, (8, 20), cv2_mod.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 0), 1, cv2_mod.LINE_AA)
+        rows.append(np.hstack([raw, pred]))
+    ensure_dir(out_path.parent)
+    cv2_mod.imwrite(str(out_path), np.vstack(rows))
+    return str(out_path)
+
+
 def setup_ultralytics(repo_root: Path):
     cache_dir = ensure_dir(MODULE_ROOT / ".ultralytics_cache")
     os.environ["YOLO_CONFIG_DIR"] = str(cache_dir)
@@ -239,7 +267,9 @@ def run_image_detection(args: argparse.Namespace, out_dir: Path, area_engine: Li
         raise FileNotFoundError(f"No jpg images found in {args.image_dir}")
 
     pred_dir = ensure_dir(out_dir / "predicted_images")
+    area_visual_dir = ensure_dir(out_dir / "area_visuals")
     detection_rows: list[dict[str, Any]] = []
+    area_rows: list[dict[str, Any]] = []
     image_items: list[dict[str, Any]] = []
     for image_path in image_paths:
         image = cv2_mod.imread(str(image_path))
@@ -254,6 +284,7 @@ def run_image_detection(args: argparse.Namespace, out_dir: Path, area_engine: Li
             verbose=False,
         )[0]
         detections: list[dict[str, Any]] = []
+        area_visuals: dict[str, str] = {}
         if result.boxes is not None and len(result.boxes) > 0:
             xyxy_list = result.boxes.xyxy.cpu().tolist()
             conf_list = result.boxes.conf.cpu().tolist()
@@ -275,7 +306,7 @@ def run_image_detection(args: argparse.Namespace, out_dir: Path, area_engine: Li
                 )
                 pending.append({"detection_id": detection_id, "xyxy": bbox, "conf": float(conf), "cls_id": cls_id})
 
-            area_by_id = area_engine.estimate_image(image_path, box_specs)
+            area_by_id, area_visuals = area_engine.estimate_image_with_visuals(image_path, box_specs, area_visual_dir)
             for det in pending:
                 cls_id = det["cls_id"]
                 areas = area_by_id[det["detection_id"]]
@@ -305,6 +336,26 @@ def run_image_detection(args: argparse.Namespace, out_dir: Path, area_engine: Li
                         "M4_status": areas[2]["status"],
                     }
                 )
+                for area in areas:
+                    area_rows.append(
+                        {
+                            "image_name": image_path.name,
+                            "detection_id": item["detection_id"],
+                            "class_code": item["class_code"],
+                            "class_name": item["class_name"],
+                            "confidence": item["confidence"],
+                            "bbox_xyxy": json.dumps(item["bbox_xyxy"]),
+                            "method_id": area["method_id"],
+                            "method_name": area["method_name"],
+                            "estimated_area_m2": area["estimated_area_m2"],
+                            "status": area["status"],
+                            "mask_source": area["mask_source"],
+                            "mask_pixels": area["mask_pixels"],
+                            "depth_median_m": area.get("depth_median_m", ""),
+                            "raw_depth_bbox_area_m2": area.get("raw_depth_bbox_area_m2", ""),
+                            "depth_area_is_assumption": area["depth_area_is_assumption"],
+                        }
+                    )
                 draw_box(
                     image,
                     det["xyxy"],
@@ -318,12 +369,15 @@ def run_image_detection(args: argparse.Namespace, out_dir: Path, area_engine: Li
                 "image_name": image_path.name,
                 "raw_image": str(image_path),
                 "predicted_image": str(pred_path),
+                "area_visuals": area_visuals if detections else {},
                 "num_detections": len(detections),
                 "detections": detections,
             }
         )
 
     write_csv(out_dir / "detections.csv", detection_rows)
+    write_csv(out_dir / "area_estimates.csv", area_rows)
+    review_grid_path = write_predicted_review_grid(image_items, out_dir / "predicted_review_grid.jpg")
     counts = Counter()
     for row in detection_rows:
         counts[row["class_code"]] += 1
@@ -358,6 +412,12 @@ def run_image_detection(args: argparse.Namespace, out_dir: Path, area_engine: Li
             {"path": item["predicted_image"], "caption": f"Model-predicted bbox visualization for {item['image_name']}"}
             for item in image_items
         ],
+        "source_files": {
+            "detections_csv": str(out_dir / "detections.csv"),
+            "area_estimates_csv": str(out_dir / "area_estimates.csv"),
+            "area_visuals_dir": str(area_visual_dir),
+            "predicted_review_grid": review_grid_path,
+        },
         "limitations": standard_limitations(),
     }
 
@@ -699,6 +759,64 @@ def image_to_data_url(image_path: Path) -> str:
 
 def compact_report_input_for_prompt(report_input: dict[str, Any], max_events: int) -> dict[str, Any]:
     compact = json.loads(json.dumps(report_input, ensure_ascii=False))
+    if compact.get("report_type") == "image_set":
+        detection_table = []
+        class_confidences: dict[str, list[float]] = defaultdict(list)
+        image_summary = []
+        for image in compact.get("images", []):
+            image_counts: Counter[str] = Counter()
+            image_top_detections = []
+            for det in image.get("detections", []):
+                area_by_id = {row["method_id"]: row["estimated_area_m2"] for row in det.get("area_estimates", [])}
+                class_confidences[det["class_code"]].append(float(det["confidence"]))
+                image_counts[det["class_code"]] += 1
+                image_top_detections.append(
+                    {
+                        "detection_id": det["detection_id"],
+                        "class_code": det["class_code"],
+                        "confidence": det["confidence"],
+                        "M1_area_m2": area_by_id.get("M1"),
+                        "M3_area_m2": area_by_id.get("M3"),
+                        "M4_area_m2": area_by_id.get("M4"),
+                    }
+                )
+                detection_table.append(
+                    {
+                        "detection_id": det["detection_id"],
+                        "image_name": image["image_name"],
+                        "class_code": det["class_code"],
+                        "class_name": det["class_name"],
+                        "confidence": det["confidence"],
+                        "M1_area_m2": area_by_id.get("M1"),
+                        "M3_area_m2": area_by_id.get("M3"),
+                        "M4_area_m2": area_by_id.get("M4"),
+                    }
+                )
+            image_top_detections.sort(key=lambda row: (-float(row["confidence"]), row["detection_id"]))
+            image_summary.append(
+                {
+                    "image_name": image["image_name"],
+                    "num_detections": image["num_detections"],
+                    "counts_by_class": dict(sorted(image_counts.items())),
+                    "top_detections_by_confidence": image_top_detections[:3],
+                }
+            )
+        compact["image_detection_table"] = detection_table
+        compact["image_summary"] = image_summary
+        compact["image_class_summary"] = [
+            {
+                "class_code": class_code,
+                "count": len(values),
+                "min_confidence": round(min(values), 4),
+                "max_confidence": round(max(values), 4),
+            }
+            for class_code, values in sorted(class_confidences.items())
+        ]
+        priority_events = sorted(
+            detection_table,
+            key=lambda row: (-float(row["confidence"]), -float(row.get("M1_area_m2") or 0), row["detection_id"]),
+        )[:5]
+        compact["priority_events"] = priority_events
     if compact.get("report_type") == "video":
         events = compact.get("events", [])
         compact["events"] = events[:max_events]
@@ -709,7 +827,11 @@ def compact_report_input_for_prompt(report_input: dict[str, Any], max_events: in
     return compact
 
 
-def build_qwen_messages(report_input: dict[str, Any], max_prompt_events: int) -> list[dict[str, Any]]:
+def build_qwen_messages(
+    report_input: dict[str, Any],
+    max_prompt_events: int,
+    max_visual_evidence: int,
+) -> list[dict[str, Any]]:
     compact = compact_report_input_for_prompt(report_input, max_prompt_events)
     system_prompt = (
         "你是道路病害巡检报告助手。必须只根据用户提供的结构化证据和图片写报告。"
@@ -719,11 +841,16 @@ def build_qwen_messages(report_input: dict[str, Any], max_prompt_events: int) ->
     user_text = (
         "请根据下面的 report_input 生成中文 Markdown 道路病害报告。"
         "报告必须包含：巡检概况、病害统计、代表图说明、重点病害事件、M1/M3/M4 面积估计比较、"
-        "维护优先级建议、局限性。不要输出 JSON。\n\n"
+        "维护优先级建议、局限性。不要输出 JSON。"
+        "病害统计表优先写类别和数量；如果写置信度范围，必须逐字使用 image_class_summary，不要自己重新聚合。"
+        "代表图说明必须逐字依据 image_summary 的 num_detections 和 counts_by_class，不要从图片外观自由计数或描述“可见几条”。"
+        "重点病害事件必须只使用 priority_events，复制同一行的 detection_id、class_code、confidence、M1/M3/M4，不能自行挑选或混用。"
+        "如果引用 detection_id，必须使用 image_detection_table 中同一行的 class_code、confidence 和面积值，"
+        "不要把不同 detection 的类别或置信度混用。不要说“准确率”，只能说“模型置信度”。\n\n"
         f"report_input:\n{json.dumps(compact, ensure_ascii=False, indent=2)}"
     )
     content: list[dict[str, Any]] = [{"type": "text", "text": user_text}]
-    for item in report_input.get("visual_evidence", [])[:4]:
+    for item in report_input.get("visual_evidence", [])[:max_visual_evidence]:
         image_path = Path(item["path"])
         if image_path.exists():
             content.append({"type": "image_url", "image_url": {"url": image_to_data_url(image_path)}})
@@ -753,8 +880,12 @@ def call_siliconflow(payload: dict[str, Any], timeout_s: int) -> dict[str, Any]:
         raise RuntimeError("SILICONFLOW_API_KEY is not set. Export it in your shell before using --call-api.")
     requests_mod = require_requests()
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    response = requests_mod.post(API_URL, headers=headers, json=payload, timeout=timeout_s)
-    response.raise_for_status()
+    try:
+        response = requests_mod.post(API_URL, headers=headers, json=payload, timeout=timeout_s)
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(f"SiliconFlow request failed: {type(exc).__name__}: {exc}") from exc
+    if not response.ok:
+        raise RuntimeError(f"SiliconFlow HTTP {response.status_code}: {response.text[:1000]}")
     return response.json()
 
 
@@ -769,7 +900,7 @@ def build_payload(args: argparse.Namespace, report_input: dict[str, Any]) -> dic
         "model": args.qwen_model,
         "temperature": args.temperature,
         "max_tokens": args.max_tokens,
-        "messages": build_qwen_messages(report_input, args.max_prompt_events),
+        "messages": build_qwen_messages(report_input, args.max_prompt_events, args.max_visual_evidence),
     }
     if args.enable_thinking:
         payload["enable_thinking"] = True
@@ -802,6 +933,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--metric3d-input-height", type=int, default=616)
     parser.add_argument("--metric3d-input-width", type=int, default=1064)
     parser.add_argument("--max-prompt-events", type=int, default=30)
+    parser.add_argument("--max-visual-evidence", type=int, default=5)
     parser.add_argument("--qwen-model", default=DEFAULT_MODEL)
     parser.add_argument("--temperature", type=float, default=0.2)
     parser.add_argument("--max-tokens", type=int, default=2048)
@@ -838,6 +970,33 @@ def main() -> int:
     }
     write_json(demo_dir / "report_input.json", report_input)
 
+    damage_summary = report_input.get("damage_summary", {})
+    if int(damage_summary.get("total_detections", 0) or 0) == 0:
+        (demo_dir / "report.md").write_text(
+            "No road damage detections were found. Area estimation and Qwen report generation were skipped.\n",
+            encoding="utf-8",
+        )
+        write_json(
+            demo_dir / "qwen_request_preview.json",
+            {
+                "skipped": True,
+                "reason": "no_detections",
+                "message": "No Qwen request was built because there were no model detections.",
+            },
+        )
+        result = {
+            "mode": args.mode,
+            "output_dir": str(demo_dir),
+            "report_input": str(demo_dir / "report_input.json"),
+            "request_preview": str(demo_dir / "qwen_request_preview.json"),
+            "report": str(demo_dir / "report.md"),
+            "call_api": False,
+            "runtime_s": round(time.time() - start, 3),
+            "skipped_reason": "no_detections",
+        }
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return 0
+
     payload = build_payload(args, report_input)
     write_json(demo_dir / "qwen_request_preview.json", preview_payload(payload))
 
@@ -851,8 +1010,8 @@ def main() -> int:
                 "API call was not executed. Re-run with --call-api after setting SILICONFLOW_API_KEY.\n",
                 encoding="utf-8",
             )
-    except RuntimeError as exc:
-        (demo_dir / "report.md").write_text(f"Report generation failed before API call: {exc}\n", encoding="utf-8")
+    except Exception as exc:  # noqa: BLE001
+        (demo_dir / "report.md").write_text(f"Report generation failed: {exc}\n", encoding="utf-8")
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 

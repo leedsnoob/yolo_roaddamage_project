@@ -22,9 +22,9 @@ There is no camera calibration, no real focal length, and no ground-truth physic
 
 ### M1: Empirical bbox baseline
 
-Uses bbox width/height and the empirical rule provided by the senior student.
+Uses bbox width/height and the configured bbox empirical rule.
 
-使用师哥给出的经验公式，根据 bbox 宽高估计面积。
+使用配置中的 bbox 经验规则，根据 bbox 宽高估计面积。
 
 ### M2: FastSAM mask
 
@@ -34,15 +34,15 @@ Uses the GT bbox crop as the FastSAM input. The text prompt is intentionally coa
 
 ### M3: Depth Anything V2 + empirical bbox
 
-Uses the full bbox rectangle for depth sampling, then applies the same senior empirical bbox ratio used by M1. FastSAM is not used by M3.
+Uses the full bbox rectangle for depth sampling, then applies the same bbox empirical ratio used by M1. FastSAM is not used by M3.
 
-使用完整 bbox 矩形区域取 Depth Anything V2 深度，再乘以 M1 中师哥经验公式对应的有效面积比例。M3 不使用 FastSAM。
+使用完整 bbox 矩形区域取 Depth Anything V2 深度，再乘以 M1 中 bbox 经验规则对应的有效面积比例。M3 不使用 FastSAM。
 
 ### M4: Metric3D + empirical bbox
 
-Uses the full bbox rectangle for Metric3D depth sampling, then applies the same senior empirical bbox ratio.
+Uses the full bbox rectangle for Metric3D depth sampling, then applies the same bbox empirical ratio.
 
-使用完整 bbox 矩形区域取 Metric3D 深度，再乘以师哥经验公式对应的有效面积比例。
+使用完整 bbox 矩形区域取 Metric3D 深度，再乘以 bbox 经验规则对应的有效面积比例。
 
 ## Current Interpretation / 当前解释
 

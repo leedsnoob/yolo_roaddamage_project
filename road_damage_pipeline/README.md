@@ -17,6 +17,7 @@ YOLO 源码没有重复放进 `02_detection`，而是在仓库根目录的 `ultr
 | `03_video_dedup` | Video inference and cross-frame event deduplication | tracker comparison CSVs, dense-frame visual boards, keyframes |
 | `04_area_measurement` | Area-estimation exploration on selected RDD GT boxes | four-method area tables, per-image boards, FastSAM crop diagnostics |
 | `05_report_generation` | Evidence-grounded intelligent report generation | report-agent design, input schema, writer/verifier prompts |
+| `web` | Local FastAPI + React workbench | upload jobs, step status, visual artifacts, report preview |
 
 ## Boundary / 边界
 
@@ -95,4 +96,20 @@ python road_damage_pipeline/05_report_generation/scripts/report_pipeline.py \
 python road_damage_pipeline/05_report_generation/scripts/report_pipeline.py \
   --mode video \
   --call-api
+```
+
+## Web Workbench / Web 工作台
+
+The local UI wraps the same pipeline scripts. It accepts one image or one video per job and writes all outputs to `road_damage_pipeline/outputs/ui_jobs/<job_id>/`.
+
+本地界面封装同一套 pipeline 脚本。每个任务只接收一张图片或一个视频，所有输出写入 `road_damage_pipeline/outputs/ui_jobs/<job_id>/`。
+
+```bash
+ROAD_DAMAGE_PIPELINE_PYTHON=/Users/tomchen/Downloads/source_only_clean_20260401/video_damage_analytics/.conda-yolo311/bin/python \
+  /Users/tomchen/Downloads/source_only_clean_20260401/video_damage_analytics/.conda-yolo311/bin/uvicorn \
+  road_damage_pipeline.web.backend.app.main:app --reload --host 127.0.0.1 --port 8000
+
+cd road_damage_pipeline/web/frontend
+npm install
+npm run dev
 ```

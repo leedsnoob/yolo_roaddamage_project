@@ -15,10 +15,10 @@ This module contains area-estimation evidence based on selected RDD images and G
 
 ## Methods / 方法
 
-- `M1`: senior empirical bbox rule with fixed pixel scale.
+- `M1`: bbox empirical rule with fixed pixel scale.
 - `M2`: FastSAM mask on bbox crop, kept as segmentation exploration.
-- `M3`: Depth Anything V2 depth inside bbox + senior empirical bbox ratio.
-- `M4`: Metric3D depth inside bbox + senior empirical bbox ratio.
+- `M3`: Depth Anything V2 depth inside bbox + bbox empirical ratio.
+- `M4`: Metric3D depth inside bbox + bbox empirical ratio.
 
 The formal report demo passes `M1`, `M3`, and `M4` to Qwen. `M2` is kept as evidence that FastSAM was explored but is not used as the formal report area input.
 
@@ -26,7 +26,7 @@ The formal report demo passes `M1`, `M3`, and `M4` to Qwen. `M2` is kept as evid
 
 For report generation, `M3` and `M4` are not packaged median-ratio estimates. The report module calls `scripts/live_area_engine.py`, runs Depth Anything V2 and Metric3D on the input image or representative video frame, then computes bbox-rectangle depth area with the same empirical bbox correction.
 
-报告生成阶段的 `M3` 和 `M4` 不是打包好的中位比例估计。报告模块会调用 `scripts/live_area_engine.py`，对输入图片或视频代表帧实际运行 Depth Anything V2 和 Metric3D，再用 bbox 矩形深度面积结合师哥经验 bbox 修正。
+报告生成阶段的 `M3` 和 `M4` 不是打包好的中位比例估计。报告模块会调用 `scripts/live_area_engine.py`，对输入图片或视频代表帧实际运行 Depth Anything V2 和 Metric3D，再用 bbox 矩形深度面积结合 bbox 经验规则修正。
 
 ## Usage / 使用
 
