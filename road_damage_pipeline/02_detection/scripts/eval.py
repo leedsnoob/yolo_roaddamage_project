@@ -14,7 +14,16 @@ import yaml
 
 
 PIPELINE_ROOT = Path(__file__).resolve().parents[1]
-WORKSPACE_ROOT = PIPELINE_ROOT.parents[1]
+PACKAGE_ROOT = PIPELINE_ROOT.parent
+
+
+def default_repo_root() -> Path:
+    if (PACKAGE_ROOT.parent / "ultralytics").exists():
+        return PACKAGE_ROOT.parent
+    return PACKAGE_ROOT.parent / "ultralytics_yolo11_final"
+
+
+DEFAULT_REPO_ROOT = default_repo_root()
 
 
 def load_yaml(path: Path) -> dict:
@@ -26,7 +35,24 @@ def resolve_path(value: str | Path | None) -> Path | None:
     if not value:
         return None
     path = Path(value)
-    return path if path.is_absolute() else WORKSPACE_ROOT / path
+    if path.is_absolute():
+        return path
+    for base in (Path.cwd(), DEFAULT_REPO_ROOT, DEFAULT_REPO_ROOT.parent):
+        candidate = base / path
+        if candidate.exists():
+            return candidate
+    return Path.cwd() / path
+
+
+def resolve_repo_root(value: str | Path | None) -> Path:
+    if not value:
+        return DEFAULT_REPO_ROOT
+    path = resolve_path(value)
+    if path and path.exists():
+        return path
+    if Path(value).name == "ultralytics_yolo11_final" and DEFAULT_REPO_ROOT.exists():
+        return DEFAULT_REPO_ROOT
+    return path or DEFAULT_REPO_ROOT
 
 
 def resolve_device(device: str) -> str:
@@ -99,7 +125,7 @@ def per_class_rows(results) -> list[dict]:
 
 def main() -> None:
     cfg = merged_config(parse_args())
-    repo_root = resolve_path(cfg.get("repo_root") or "ultralytics_yolo11_final")
+    repo_root = resolve_repo_root(cfg.get("repo_root"))
     weights = resolve_path(cfg.get("weights"))
     data = resolve_path(cfg.get("data"))
     project = resolve_path(cfg.get("project") or PIPELINE_ROOT / "outputs" / "eval")

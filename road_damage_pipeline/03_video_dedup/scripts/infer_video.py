@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import importlib.util
 import json
@@ -26,10 +28,18 @@ from pipeline_core.tracker_backends import DeepOCSortAdapter, tracker_backend_to
 
 
 PIPELINE_ROOT = Path(__file__).resolve().parents[1]
-WORKSPACE_ROOT = PIPELINE_ROOT.parents[1]
+PACKAGE_ROOT = PIPELINE_ROOT.parent
+
+
+def default_repo_root() -> Path:
+    if (PACKAGE_ROOT.parent / "ultralytics").exists():
+        return PACKAGE_ROOT.parent
+    return PACKAGE_ROOT.parent / "ultralytics_yolo11_final"
+
+
+DEFAULT_REPO_ROOT = default_repo_root()
 DEFAULT_VIDEO = PIPELINE_ROOT / "samples" / "videos" / "3_dense_130_190.mp4"
 DEFAULT_WEIGHTS = PIPELINE_ROOT / "weights" / "yolo11s_original_nondrone_noempty_best.pt"
-DEFAULT_REPO_ROOT = WORKSPACE_ROOT / "ultralytics_yolo11_final"
 DEFAULT_CONFIG = PIPELINE_ROOT / "configs" / "infer_video_default.yaml"
 DEFAULT_OUTPUT_ROOT = PIPELINE_ROOT / "outputs"
 
@@ -111,16 +121,42 @@ def merge_config(args: argparse.Namespace) -> dict:
             merged[key] = value
     merged["save_video"] = bool(args.save_video or merged.get("save_video"))
     merged["compare_trackers"] = bool(args.compare_trackers or merged.get("compare_trackers"))
-    for key in ("video", "weights", "repo_root", "output_root"):
-        merged[key] = Path(merged[key])
+    merged["video"] = resolve_path(merged["video"])
+    merged["weights"] = resolve_path(merged["weights"])
+    merged["repo_root"] = resolve_repo_root(merged["repo_root"])
+    merged["output_root"] = resolve_path(merged["output_root"])
     if merged.get("homography_config"):
-        merged["homography_config"] = Path(merged["homography_config"])
+        merged["homography_config"] = resolve_path(merged["homography_config"])
     return merged
 
 
 def ensure_dir(path: Path) -> Path:
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def resolve_path(value: str | Path | None) -> Path | None:
+    if not value:
+        return None
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    for base in (Path.cwd(), DEFAULT_REPO_ROOT, DEFAULT_REPO_ROOT.parent):
+        candidate = base / path
+        if candidate.exists():
+            return candidate
+    return Path.cwd() / path
+
+
+def resolve_repo_root(value: str | Path | None) -> Path:
+    if not value:
+        return DEFAULT_REPO_ROOT
+    path = resolve_path(value)
+    if path and path.exists():
+        return path
+    if Path(value).name == "ultralytics_yolo11_final" and DEFAULT_REPO_ROOT.exists():
+        return DEFAULT_REPO_ROOT
+    return path or DEFAULT_REPO_ROOT
 
 
 def sw_vers() -> str:

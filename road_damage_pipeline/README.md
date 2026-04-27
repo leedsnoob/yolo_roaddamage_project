@@ -2,7 +2,11 @@
 
 This is the standalone thesis pipeline package. It separates the work into five independent modules. The final runnable demo path is `02_detection -> 03_video_dedup -> 04_area_measurement -> 05_report_generation`.
 
+The YOLO source code is not duplicated inside `02_detection`; it lives at the repository root in `ultralytics/`. The packaged scripts auto-detect this root, so a normal clone can run the demo without cloning another YOLO repo.
+
 这是毕设最终工程化 pipeline 目录。这里把五个模块拆开维护。最终可运行 demo 链路是 `02_detection -> 03_video_dedup -> 04_area_measurement -> 05_report_generation`。
+
+YOLO 源码没有重复放进 `02_detection`，而是在仓库根目录的 `ultralytics/`。打包脚本会自动识别这个根目录，所以正常 clone 本仓库后不需要再额外 clone 一个 YOLO 仓库即可运行 demo。
 
 ## Modules / 模块
 
@@ -44,7 +48,7 @@ Install the shared dependencies first:
 
 ```bash
 python -m pip install -r road_damage_pipeline/requirements.txt
-python -m pip install -e ultralytics_yolo11_final
+python -m pip install -e .
 ```
 
 If you use the existing local YOLO environment, run scripts with:
@@ -54,6 +58,26 @@ If you use the existing local YOLO environment, run scripts with:
 ```bash
 video_damage_analytics/.conda-yolo311/bin/python road_damage_pipeline/03_video_dedup/scripts/infer_video.py --help
 ```
+
+## Smoke Test / 快速连通性测试
+
+Run this after cloning the repository and installing dependencies:
+
+clone 并安装依赖后，可先运行：
+
+```bash
+python road_damage_pipeline/scripts/smoke_test_pipeline.py --device cpu
+```
+
+This checks:
+
+这会检查：
+
+- the small image sample set is non-drone and non-empty;
+- `02_detection` can load the packaged YOLO source and demo weight;
+- `03_video_dedup` can generate short video detections and track events;
+- `04_area_measurement` packaged M1/M3/M4 assets are present;
+- `05_report_generation` can build image/video report inputs without calling the API.
 
 ## Report Demo / 报告生成 Demo
 
