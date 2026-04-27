@@ -54,6 +54,45 @@ def ensure_dir(path: Path) -> Path:
     return path
 
 
+def validate_packaged_assets() -> dict[str, object]:
+    required_files = [
+        OUT_ROOT / "four_method_area_results_long.csv",
+        OUT_ROOT / "four_method_area_results_wide.csv",
+        OUT_ROOT / "four_method_area_summary_by_class.csv",
+        OUT_ROOT / "manifest.json",
+    ]
+    missing = [str(path) for path in required_files if not path.exists()]
+    if missing:
+        raise FileNotFoundError(
+            "Raw area experiment files are not available and packaged area assets are incomplete: "
+            + "; ".join(missing)
+        )
+
+    long_rows = read_csv(OUT_ROOT / "four_method_area_results_long.csv")
+    wide_rows = read_csv(OUT_ROOT / "four_method_area_results_wide.csv")
+    methods = sorted({row["method"] for row in long_rows})
+    required_wide_columns = {
+        "M1_empirical_bbox_m2",
+        "M2_fastsam_mask_m2",
+        "M3_depth_anything_v2_m2",
+        "M4_metric3d_m2",
+    }
+    has_required_columns = bool(wide_rows) and required_wide_columns.issubset(wide_rows[0].keys())
+    if not has_required_columns:
+        raise ValueError("Packaged wide area CSV is missing one or more M1/M2/M3/M4 columns.")
+
+    manifest = json.loads((OUT_ROOT / "manifest.json").read_text(encoding="utf-8"))
+    return {
+        "status": "packaged_assets_validated",
+        "reason": "raw area_experiments directory was not found; using repository-packaged evidence",
+        "output_root": str(OUT_ROOT),
+        "num_gt_boxes": len(wide_rows),
+        "num_method_rows": len(long_rows),
+        "methods": methods,
+        "manifest": manifest,
+    }
+
+
 def read_csv(path: Path) -> list[dict[str, str]]:
     with path.open("r", newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
@@ -365,6 +404,10 @@ def write_readme(long_rows: list[dict[str, object]], wide_rows: list[dict[str, o
 
 
 def main() -> int:
+    if not M123_CSV.exists() or not M4_CSV.exists():
+        print(json.dumps(validate_packaged_assets(), indent=2, ensure_ascii=False))
+        return 0
+
     ensure_dir(OUT_ROOT)
     long_rows, wide_rows = combine_results()
     summary_rows = summarize_by_class(long_rows)

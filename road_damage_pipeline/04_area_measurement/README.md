@@ -25,13 +25,17 @@ The formal report demo passes `M1`, `M3`, and `M4` to Qwen. `M2` is kept as evid
 
 ## Usage / 使用
 
-Rebuild packaged area evidence:
+Validate or rebuild packaged area evidence:
 
-重新生成打包面积证据：
+验证或重新生成打包面积证据：
 
 ```bash
 python road_damage_pipeline/04_area_measurement/scripts/build_area_pipeline_v1.py
 ```
+
+If the original local `area_experiments/` directory is absent, the script validates the packaged CSV/visual evidence instead of failing. If the original experiment directory is present, it rebuilds the packaged assets.
+
+如果本地没有原始 `area_experiments/` 目录，脚本会验证仓库内已打包的 CSV/可视化证据，而不是直接失败。如果原始实验目录存在，则重新生成打包资产。
 
 Rebuild FastSAM crop diagnostics:
 
