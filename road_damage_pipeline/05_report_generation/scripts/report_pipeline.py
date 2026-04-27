@@ -831,24 +831,45 @@ def build_qwen_messages(
     report_input: dict[str, Any],
     max_prompt_events: int,
     max_visual_evidence: int,
+    report_language: str,
 ) -> list[dict[str, Any]]:
     compact = compact_report_input_for_prompt(report_input, max_prompt_events)
-    system_prompt = (
-        "你是道路病害巡检报告助手。必须只根据用户提供的结构化证据和图片写报告。"
-        "不要编造新的病害、数字、面积、准确率或维修结论。confidence 只能称为模型置信度，"
-        "area 必须称为估计面积。维护建议只能作为辅助建议。"
-    )
-    user_text = (
-        "请根据下面的 report_input 生成中文 Markdown 道路病害报告。"
-        "报告必须包含：巡检概况、病害统计、代表图说明、重点病害事件、M1/M3/M4 面积估计比较、"
-        "维护优先级建议、局限性。不要输出 JSON。"
-        "病害统计表优先写类别和数量；如果写置信度范围，必须逐字使用 image_class_summary，不要自己重新聚合。"
-        "代表图说明必须逐字依据 image_summary 的 num_detections 和 counts_by_class，不要从图片外观自由计数或描述“可见几条”。"
-        "重点病害事件必须只使用 priority_events，复制同一行的 detection_id、class_code、confidence、M1/M3/M4，不能自行挑选或混用。"
-        "如果引用 detection_id，必须使用 image_detection_table 中同一行的 class_code、confidence 和面积值，"
-        "不要把不同 detection 的类别或置信度混用。不要说“准确率”，只能说“模型置信度”。\n\n"
-        f"report_input:\n{json.dumps(compact, ensure_ascii=False, indent=2)}"
-    )
+    if report_language == "en":
+        system_prompt = (
+            "You are a road-damage inspection report assistant. Write only from the provided structured evidence "
+            "and images. Do not invent defects, numbers, areas, accuracy, or engineering conclusions. "
+            "Confidence must be described as model confidence, and area must be described as estimated area. "
+            "Maintenance recommendations are decision-support suggestions only."
+        )
+        user_text = (
+            "Generate an English Markdown road-damage inspection report from the report_input below. "
+            "The report must include: inspection overview, damage statistics, representative-image notes, "
+            "priority damage events, M1/M3/M4 estimated-area comparison, maintenance-priority suggestions, and limitations. "
+            "Do not output JSON. For damage statistics, prioritize class names and counts. If confidence ranges are used, "
+            "copy them only from image_class_summary. Do not recalculate them. Representative-image notes must follow "
+            "image_summary.num_detections and image_summary.counts_by_class; do not freely count visible objects from images. "
+            "Priority events must use priority_events only and copy each event's detection_id, class_code, confidence, and M1/M3/M4 values. "
+            "If a detection_id is referenced, use class_code, confidence, and area values from the same row of image_detection_table. "
+            "Do not use the word accuracy unless explicitly saying that confidence is not accuracy.\n\n"
+            f"report_input:\n{json.dumps(compact, ensure_ascii=False, indent=2)}"
+        )
+    else:
+        system_prompt = (
+            "你是道路病害巡检报告助手。必须只根据用户提供的结构化证据和图片写报告。"
+            "不要编造新的病害、数字、面积、准确率或维修结论。confidence 只能称为模型置信度，"
+            "area 必须称为估计面积。维护建议只能作为辅助建议。"
+        )
+        user_text = (
+            "请根据下面的 report_input 生成中文 Markdown 道路病害报告。"
+            "报告必须包含：巡检概况、病害统计、代表图说明、重点病害事件、M1/M3/M4 面积估计比较、"
+            "维护优先级建议、局限性。不要输出 JSON。"
+            "病害统计表优先写类别和数量；如果写置信度范围，必须逐字使用 image_class_summary，不要自己重新聚合。"
+            "代表图说明必须逐字依据 image_summary 的 num_detections 和 counts_by_class，不要从图片外观自由计数或描述“可见几条”。"
+            "重点病害事件必须只使用 priority_events，复制同一行的 detection_id、class_code、confidence、M1/M3/M4，不能自行挑选或混用。"
+            "如果引用 detection_id，必须使用 image_detection_table 中同一行的 class_code、confidence 和面积值，"
+            "不要把不同 detection 的类别或置信度混用。不要说“准确率”，只能说“模型置信度”。\n\n"
+            f"report_input:\n{json.dumps(compact, ensure_ascii=False, indent=2)}"
+        )
     content: list[dict[str, Any]] = [{"type": "text", "text": user_text}]
     for item in report_input.get("visual_evidence", [])[:max_visual_evidence]:
         image_path = Path(item["path"])
@@ -900,7 +921,12 @@ def build_payload(args: argparse.Namespace, report_input: dict[str, Any]) -> dic
         "model": args.qwen_model,
         "temperature": args.temperature,
         "max_tokens": args.max_tokens,
-        "messages": build_qwen_messages(report_input, args.max_prompt_events, args.max_visual_evidence),
+        "messages": build_qwen_messages(
+            report_input,
+            args.max_prompt_events,
+            args.max_visual_evidence,
+            args.report_language,
+        ),
     }
     if args.enable_thinking:
         payload["enable_thinking"] = True
@@ -934,6 +960,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--metric3d-input-width", type=int, default=1064)
     parser.add_argument("--max-prompt-events", type=int, default=30)
     parser.add_argument("--max-visual-evidence", type=int, default=5)
+    parser.add_argument("--report-language", choices=["zh", "en"], default="zh")
     parser.add_argument("--qwen-model", default=DEFAULT_MODEL)
     parser.add_argument("--temperature", type=float, default=0.2)
     parser.add_argument("--max-tokens", type=int, default=2048)
@@ -964,6 +991,7 @@ def main() -> int:
     report_input["report_generation"] = {
         "provider": "SiliconFlow",
         "model": args.qwen_model,
+        "language": args.report_language,
         "api_url": API_URL,
         "call_api": bool(args.call_api),
         "runtime_started_at_unix": int(start),

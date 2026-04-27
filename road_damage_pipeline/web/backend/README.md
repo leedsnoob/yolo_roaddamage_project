@@ -23,6 +23,10 @@ FastAPI backend for the road damage workbench.
 - `GET /api/jobs/{job_id}/artifacts`: list generated artifacts.
 - `/artifacts/{job_id}/...`: serve generated files.
 
+`POST /api/jobs` accepts `report_language=zh|en`. The backend stores it in the job options and forwards it to the report-generation script.
+
+`POST /api/jobs` 支持 `report_language=zh|en`。后端会把它保存到任务配置，并传给报告生成脚本。
+
 ## Environment / 环境
 
 The backend itself is lightweight, but the job runner needs the pipeline dependencies: `opencv-python`, `torch`, `ultralytics`, `scipy`, `filterpy`, `lap`, `pandas`, `fastapi`, `uvicorn`, and `python-multipart`.

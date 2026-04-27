@@ -5,10 +5,10 @@ This script does not re-run FastSAM, Depth Anything V2, or Metric3D. It
 combines the already generated experiment outputs into one pipeline artifact
 for the thesis/demo frontend:
 
-M1: empirical bbox rule
+M1: bbox geometry prior
 M2: FastSAM mask from bbox crop with class-derived damage text prompt
-M3: Depth Anything V2 + bbox empirical prior
-M4: Metric3D + bbox empirical prior
+M3: Depth Anything V2 + bbox geometry prior
+M4: Metric3D + bbox geometry prior
 """
 
 from __future__ import annotations
@@ -299,9 +299,9 @@ def make_combined_boards(wide_rows: list[dict[str, object]]) -> list[str]:
         lines.extend(
             [
                 "",
-                "M1: bbox empirical rule with fixed scale.",
+                "M1: bbox geometry prior with fixed scale.",
                 "M2: crop GT bbox, then use FastSAM with a coarse damage text prompt.",
-                "M3/M4: sample depth inside the bbox and apply the bbox empirical ratio.",
+                "M3/M4: sample depth inside the bbox and apply the class-specific effective-area ratio.",
                 "Visual explanation only. Numeric areas are stored in CSV tables.",
             ]
         )
@@ -358,10 +358,10 @@ def write_readme(long_rows: list[dict[str, object]], wide_rows: list[dict[str, o
         "",
         "## Methods",
         "",
-        "- M1 empirical bbox: empirical class-specific bbox rule with fixed pixel scale.",
+        "- M1 bbox geometry prior: class-specific bbox formula with fixed pixel scale.",
         "- M2 FastSAM mask: GT bbox is cropped first; FastSAM receives the crop and a class-derived damage text prompt.",
-        "- M3 Depth Anything V2 + empirical bbox: bbox depth area corrected by the bbox empirical ratio.",
-        "- M4 Metric3D + empirical bbox: bbox depth area corrected by the bbox empirical ratio.",
+        "- M3 Depth Anything V2 + bbox geometry prior: bbox depth area corrected by the class-specific effective-area ratio.",
+        "- M4 Metric3D + bbox geometry prior: bbox depth area corrected by the class-specific effective-area ratio.",
         "",
         "## Parameters",
         "",

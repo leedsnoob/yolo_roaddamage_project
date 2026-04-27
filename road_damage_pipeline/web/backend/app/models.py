@@ -9,6 +9,7 @@ from typing import Any, Literal
 StepStatus = Literal["pending", "running", "done", "failed", "skipped"]
 JobStatus = Literal["queued", "running", "completed", "failed"]
 FileType = Literal["image", "video"]
+ReportLanguage = Literal["zh", "en"]
 
 
 STEP_ORDER = ["upload", "segmentation", "detection", "dedup", "area", "report"]
@@ -34,6 +35,7 @@ class StepState:
 class JobOptions:
     run_segmentation: bool = False
     call_api: bool = False
+    report_language: ReportLanguage = "zh"
     conf: float = 0.25
     iou: float = 0.50
     imgsz: int = 832
@@ -44,6 +46,7 @@ class JobOptions:
         return {
             "run_segmentation": self.run_segmentation,
             "call_api": self.call_api,
+            "report_language": self.report_language,
             "conf": self.conf,
             "iou": self.iou,
             "imgsz": self.imgsz,

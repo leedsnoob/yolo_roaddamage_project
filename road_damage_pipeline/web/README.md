@@ -9,6 +9,7 @@ This UI is a local engineering wrapper around the five pipeline modules. It does
 - Image / 图片：upload -> detection -> area measurement -> report generation.
 - Video / 视频：upload -> detection -> video deduplication -> representative-frame area measurement -> report generation.
 - Segmentation / 语义分割：exploration-only visual module. It can be attached for display, but it is not part of the formal report chain.
+- Language / 语言：the UI supports Chinese and English. The selected language is also passed to report generation, so Qwen reports can be generated in Chinese or English.
 
 ## Start / 启动
 

@@ -54,7 +54,7 @@ def test_upload_image_creates_completed_job_with_artifacts(tmp_path: Path) -> No
     response = client.post(
         "/api/jobs",
         files={"file": ("sample.jpg", b"fake-image-bytes", "image/jpeg")},
-        data={"run_segmentation": "false", "call_api": "false"},
+        data={"run_segmentation": "false", "call_api": "false", "report_language": "en"},
     )
 
     assert response.status_code == 200
@@ -65,6 +65,7 @@ def test_upload_image_creates_completed_job_with_artifacts(tmp_path: Path) -> No
     assert status["status"] == "completed"
     assert status["steps"]["detection"]["status"] == "done"
     assert status["steps"]["report"]["status"] == "done"
+    assert status["options"]["report_language"] == "en"
 
     artifacts = client.get(f"/api/jobs/{job_id}/artifacts").json()
     paths = {item["name"]: item for item in artifacts["artifacts"]}

@@ -3,6 +3,7 @@
   --asphalt: #101417;
   --asphalt-2: #171d20;
   --panel: rgba(24, 31, 35, 0.86);
+  --panel-solid: #1b2226;
   --line: rgba(240, 197, 84, 0.22);
   --text: #f4efe2;
   --muted: #a9b0aa;
@@ -20,7 +21,6 @@
 
 body {
   margin: 0;
-  min-width: 1180px;
   background:
     radial-gradient(circle at 18% 4%, rgba(79, 183, 223, 0.22), transparent 34rem),
     radial-gradient(circle at 92% 12%, rgba(246, 189, 56, 0.16), transparent 30rem),
@@ -50,21 +50,65 @@ input {
   font: inherit;
 }
 
+button {
+  color: inherit;
+}
+
 .appShell {
   position: relative;
-  padding: 26px;
+  max-width: 1720px;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 24px;
 }
 
 .masthead {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: 20px;
   padding: 28px;
   border: 1px solid var(--line);
   border-radius: 26px;
   background: linear-gradient(120deg, rgba(24, 31, 35, 0.92), rgba(12, 15, 17, 0.72));
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+}
+
+.mastheadActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  max-width: 420px;
+}
+
+.languageToggle {
+  display: inline-flex;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.languageToggle button,
+.ghostButton {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.languageToggle button.active {
+  color: #17120a;
+  background: var(--road-yellow);
+  font-weight: 900;
+}
+
+.ghostButton {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .eyebrow {
@@ -91,7 +135,7 @@ h2 {
 }
 
 .lead {
-  max-width: 840px;
+  max-width: 900px;
   color: var(--muted);
   font-size: 18px;
   line-height: 1.55;
@@ -100,7 +144,7 @@ h2 {
 .statusPill {
   border: 1px solid rgba(246, 189, 56, 0.38);
   border-radius: 999px;
-  padding: 12px 18px;
+  padding: 11px 15px;
   color: var(--road-yellow);
   background: rgba(246, 189, 56, 0.08);
   white-space: nowrap;
@@ -108,7 +152,7 @@ h2 {
 
 .workspaceGrid {
   display: grid;
-  grid-template-columns: 310px minmax(580px, 1fr) 360px;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
   gap: 18px;
   margin-top: 18px;
 }
@@ -126,7 +170,7 @@ h2 {
 
 .controlPanel {
   padding: 18px;
-  min-height: 720px;
+  min-height: 690px;
 }
 
 .uploadBox {
@@ -179,6 +223,10 @@ h2 {
   color: var(--muted);
 }
 
+.switchRow input {
+  accent-color: var(--road-yellow);
+}
+
 .sliderBlock {
   margin: 18px 0;
 }
@@ -195,7 +243,7 @@ h2 {
   padding: 15px 18px;
   color: #15110a;
   background: linear-gradient(135deg, #f6bd38, #ffe08a);
-  font-weight: 800;
+  font-weight: 900;
   cursor: pointer;
 }
 
@@ -230,8 +278,9 @@ h2 {
 }
 
 .visualStage {
+  min-width: 0;
   padding: 18px;
-  min-height: 720px;
+  min-height: 690px;
 }
 
 .stageHeader {
@@ -241,10 +290,17 @@ h2 {
   color: var(--muted);
 }
 
+.stageHeader span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .heroCanvas {
   display: grid;
   place-items: center;
-  min-height: 535px;
+  min-height: 500px;
   margin-top: 16px;
   border-radius: 22px;
   overflow: hidden;
@@ -305,13 +361,27 @@ h2 {
 }
 
 .inspectorPanel {
+  grid-column: 1 / -1;
   display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 18px;
-  align-content: start;
 }
 
 .card {
   padding: 18px;
+}
+
+.stepCard,
+.metricCard {
+  grid-column: span 3;
+}
+
+.areaCard {
+  grid-column: span 6;
+}
+
+.reportCard {
+  grid-column: span 6;
 }
 
 .stepList {
@@ -352,7 +422,7 @@ h2 {
 
 .jsonPanel,
 .reportCard pre {
-  max-height: 260px;
+  max-height: 330px;
   overflow: auto;
 }
 
@@ -391,6 +461,7 @@ h2 {
 
 .areaList {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(235px, 1fr));
   gap: 10px;
   max-height: 360px;
   overflow: auto;
@@ -452,7 +523,7 @@ h2 {
 
 .tableGrid a {
   display: grid;
-  grid-template-columns: 80px 1fr 80px;
+  grid-template-columns: 80px minmax(0, 1fr) 80px;
   gap: 12px;
   align-items: center;
   padding: 10px 12px;
@@ -467,8 +538,57 @@ h2 {
   font-size: 12px;
 }
 
+.tableGrid strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tableGrid em {
   color: var(--muted);
   font-style: normal;
   text-align: right;
+}
+
+@media (max-width: 1180px) {
+  .workspaceGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .controlPanel {
+    min-height: 0;
+  }
+
+  .inspectorPanel {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .stepCard,
+  .metricCard,
+  .areaCard,
+  .reportCard {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 760px) {
+  .appShell {
+    padding: 14px;
+  }
+
+  .masthead {
+    grid-template-columns: 1fr;
+  }
+
+  .mastheadActions {
+    justify-content: flex-start;
+  }
+
+  .inspectorPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .tableGrid a {
+    grid-template-columns: 1fr;
+  }
 }

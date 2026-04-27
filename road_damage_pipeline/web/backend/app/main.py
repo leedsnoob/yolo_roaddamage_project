@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .artifacts import list_artifacts
-from .models import JobOptions, JobState
+from .models import JobOptions, JobState, ReportLanguage
 from .runner import PipelineRunner
 from .settings import AppSettings, IMAGE_SUFFIXES, VIDEO_SUFFIXES
 
@@ -120,6 +120,7 @@ def create_app(settings: AppSettings | None = None, runner: Any | None = None) -
         imgsz: int = Form(832),
         device: str = Form("auto"),
         tracker_backend: str = Form("bytetrack"),
+        report_language: ReportLanguage = Form("zh"),
     ) -> dict[str, Any]:
         if not file.filename:
             raise HTTPException(status_code=400, detail="Uploaded file must have a filename.")
@@ -144,6 +145,7 @@ def create_app(settings: AppSettings | None = None, runner: Any | None = None) -
         options = JobOptions(
             run_segmentation=run_segmentation,
             call_api=call_api,
+            report_language=report_language,
             conf=conf,
             iou=iou,
             imgsz=imgsz,

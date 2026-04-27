@@ -5,10 +5,10 @@ The input is the selected RDD test images and their GT bounding boxes from txt l
 
 ## Methods
 
-- M1 empirical bbox: empirical class-specific bbox rule with fixed pixel scale.
+- M1 bbox geometry prior: class-specific bbox formula with fixed pixel scale.
 - M2 FastSAM mask: GT bbox is cropped first; FastSAM receives the crop and a class-derived damage text prompt.
-- M3 Depth Anything V2 + empirical bbox: bbox depth area corrected by the bbox empirical ratio.
-- M4 Metric3D + empirical bbox: bbox depth area corrected by the bbox empirical ratio.
+- M3 Depth Anything V2 + bbox geometry prior: bbox depth area corrected by the class-specific effective-area ratio.
+- M4 Metric3D + bbox geometry prior: bbox depth area corrected by the class-specific effective-area ratio.
 
 ## Parameters
 

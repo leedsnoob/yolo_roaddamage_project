@@ -29,9 +29,11 @@ npm run build
 - Display step states for upload, segmentation exploration, detection, video deduplication, area measurement, and report generation.
 - Show major visual artifacts first, then list all generated files.
 - Show report markdown when `report.md` is available.
+- Switch between Chinese and English. The selected language is sent to the backend as `report_language`.
 
 - 一次上传一个图片或视频。
 - 提交前显示本地预览。
 - 展示上传、分割探索、检测、视频去重、面积计算、报告生成状态。
 - 优先展示主要可视化产物，再列出全部文件。
 - 如果存在 `report.md`，直接显示报告内容。
+- 支持中文和英文切换，并把选择结果作为 `report_language` 传给后端。

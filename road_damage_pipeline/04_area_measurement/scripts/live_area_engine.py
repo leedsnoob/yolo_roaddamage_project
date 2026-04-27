@@ -4,7 +4,7 @@
 This module is used by report generation. It intentionally does not use
 FastSAM and does not use packaged per-class ratios. M3 and M4 run the actual
 Depth Anything V2 / Metric3D depth models over the input image, then compute a
-bbox-rectangle depth area corrected by the bbox empirical prior.
+bbox-rectangle depth area corrected by the bbox geometry prior.
 """
 
 from __future__ import annotations
@@ -94,7 +94,7 @@ def class_name(class_id: int) -> str:
 
 
 def empirical_m1_area(class_id: int, width_px: float, height_px: float, scale_factor: float) -> tuple[float, float, float]:
-    """Class-specific bbox rule used as the baseline area estimate."""
+    """Class-specific bbox geometry prior used as the baseline area estimate."""
     width_m = max(width_px, 0.0) * scale_factor
     height_m = max(height_px, 0.0) * scale_factor
     if int(class_id) == 0:
@@ -399,7 +399,7 @@ class LiveAreaEngine:
         cv2.rectangle(text_panel, (0, 0), (panel_w, 28), (255, 255, 255), -1)
         cv2.putText(text_panel, "Area estimates", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.56, (0, 0, 0), 1, cv2.LINE_AA)
         cv2.putText(text_panel, f"{title}: estimated area", (18, 58), cv2.FONT_HERSHEY_SIMPLEX, 0.64, (20, 20, 20), 2, cv2.LINE_AA)
-        cv2.putText(text_panel, "M1=bbox empirical | M3=Depth Anything | M4=Metric3D", (18, 86), cv2.FONT_HERSHEY_SIMPLEX, 0.46, (70, 70, 70), 1, cv2.LINE_AA)
+        cv2.putText(text_panel, "M1=bbox geometry | M3=Depth Anything | M4=Metric3D", (18, 86), cv2.FONT_HERSHEY_SIMPLEX, 0.46, (70, 70, 70), 1, cv2.LINE_AA)
         y = 118
         for idx, box in enumerate(boxes[:12], start=1):
             areas = estimates.get(box.item_id, [])
@@ -455,15 +455,15 @@ class LiveAreaEngine:
         return [
             {
                 "method_id": "M1",
-                "method_name": "bbox empirical rule",
+                "method_name": "bbox geometry prior",
                 "estimated_area_m2": round(prior["m1_area_m2"], 6),
                 "status": "success",
-                "limitation": "bbox-based empirical estimate, not physical GT",
+                "limitation": "bbox-geometry estimate with fixed scale, not physical GT",
                 **common,
             },
             {
                 "method_id": "M3",
-                "method_name": "Depth Anything V2 bbox-depth empirical area",
+                "method_name": "Depth Anything V2 bbox-depth geometry-prior area",
                 "estimated_area_m2": round(m3, 6),
                 "status": "success",
                 "raw_depth_bbox_area_m2": round(raw_m3, 6),
@@ -475,7 +475,7 @@ class LiveAreaEngine:
             },
             {
                 "method_id": "M4",
-                "method_name": "Metric3D bbox-depth empirical area",
+                "method_name": "Metric3D bbox-depth geometry-prior area",
                 "estimated_area_m2": round(m4, 6),
                 "status": "success",
                 "raw_depth_bbox_area_m2": round(raw_m4, 6),

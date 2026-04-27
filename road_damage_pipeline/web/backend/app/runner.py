@@ -103,6 +103,8 @@ class PipelineRunner:
             str(job.options.iou),
             "--tracker-backend",
             job.options.tracker_backend,
+            "--report-language",
+            job.options.report_language,
             "--max-visual-evidence",
             "5",
         ]
