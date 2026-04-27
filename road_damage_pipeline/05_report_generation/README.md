@@ -56,6 +56,7 @@ Reasons:
 - `prompts/report_writer.md`: evidence-grounded report writer prompt.
 - `prompts/report_verifier.md`: verifier prompt for hallucination and unsupported claims.
 - `scripts/report_pipeline.py`: builds image/video report evidence and optionally calls SiliconFlow Qwen.
+- `../04_area_measurement/scripts/live_area_engine.py`: runs live M1/M3/M4 area estimation for predicted boxes.
 
 ## Usage / 使用
 
@@ -77,6 +78,10 @@ python road_damage_pipeline/05_report_generation/scripts/report_pipeline.py \
   --call-api
 ```
 
+This runs YOLO prediction first, then runs live `M1/M3/M4` area estimation for the predicted boxes. `M3` uses Depth Anything V2 and `M4` uses Metric3D. The script does not use GT boxes.
+
+该命令会先进行 YOLO 预测，再对预测框真实运行 `M1/M3/M4` 面积估计。`M3` 使用 Depth Anything V2，`M4` 使用 Metric3D。脚本不会使用 GT 框。
+
 Build a video report demo:
 
 生成视频报告 demo：
@@ -86,6 +91,10 @@ python road_damage_pipeline/05_report_generation/scripts/report_pipeline.py \
   --mode video \
   --call-api
 ```
+
+For video, live depth area is computed only for the selected representative events/keyframes, not for every track event. This keeps the demo runnable while still passing real M3/M4 estimates to the report.
+
+视频模式只对选出的代表事件/关键帧运行真实深度面积，不对所有 track event 全量运行。这样能控制耗时，同时保证传给报告的 M3/M4 是真实计算结果。
 
 Dry-run without calling the API:
 
@@ -116,6 +125,32 @@ Each demo writes:
 - The agent may give maintenance suggestions, but must mark them as decision support, not engineering diagnosis.
 - The agent receives model-predicted boxes only. Ground-truth labels are never sent to Qwen.
 - The formal report area input uses M1/M3/M4. FastSAM is kept as exploration evidence only.
+- `M3/M4` are live Depth Anything V2 / Metric3D estimates. There is no packaged median-ratio fallback.
+
+## Live Depth Dependencies / 真实深度依赖
+
+The report pipeline expects the local depth resources used in the area experiment:
+
+报告 pipeline 默认使用面积实验里已有的本地深度资源：
+
+- Depth Anything V2 repo: `area_experiments/area_measurement_v1/external/Depth-Anything-V2`
+- Depth Anything V2 checkpoint: `area_experiments/area_measurement_v1/checkpoints/depth_anything_v2_metric_vkitti_vits.pth`
+- Metric3D: loaded through `torch.hub.load("yvanyin/metric3d", "metric3d_vit_small", pretrain=True, trust_repo=True)`
+
+You can override them:
+
+可以手动覆盖路径：
+
+```bash
+python road_damage_pipeline/05_report_generation/scripts/report_pipeline.py \
+  --mode image \
+  --depth-repo /path/to/Depth-Anything-V2 \
+  --depth-checkpoint /path/to/depth_anything_v2_metric_vkitti_vits.pth
+```
+
+If Depth Anything V2 or Metric3D cannot be loaded, the script fails explicitly. It does not generate fake M3/M4 values and does not fall back to ratio priors.
+
+如果 Depth Anything V2 或 Metric3D 无法加载，脚本会直接失败。它不会生成伪 M3/M4，也不会退回比例先验。
 
 ## References / 参考
 

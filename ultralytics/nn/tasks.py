@@ -171,7 +171,11 @@ class BaseModel(torch.nn.Module):
 
     def _predict_rdd_rg(self, x, profile=False, visualize=False):
         """Run the two-stage region-guided forward used by the RDD-RGNet port."""
-        cfg = self.rdd_rg_cfg
+        cfg = getattr(self, "rdd_rg_cfg", None)
+        if not cfg:
+            # Older checkpoints pickle DetectionModel instances without attrs added later in this final fork.
+            self.rdd_rg_cfg = self._resolve_rdd_rg_cfg()
+            cfg = self.rdd_rg_cfg
         first_pass_end = cfg["first_pass_end"]
         mask_conv_idx = cfg["mask_conv"]
         attention_idx = cfg["attention"]
@@ -1657,7 +1661,7 @@ def load_checkpoint(weight, device=None, inplace=True, fuse=False):
     if not hasattr(model, "stride"):
         model.stride = torch.tensor([32.0])
 
-    model = (model.fuse() if fuse and hasattr(model, "fuse") else model).eval().to(device)  # model in eval mode
+    model = (model.fuse(verbose=False) if fuse and hasattr(model, "fuse") else model).eval().to(device)  # model in eval mode
 
     # Module updates
     for m in model.modules():

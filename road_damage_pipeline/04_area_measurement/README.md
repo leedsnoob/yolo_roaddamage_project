@@ -11,6 +11,7 @@ This module contains area-estimation evidence based on selected RDD images and G
 - `samples/images/`: selected images, labels, and converted bbox CSV.
 - `scripts/build_area_pipeline_v1.py`: combines M1-M4 results into paper-ready tables and boards.
 - `scripts/build_crop_segmentation_quality.py`: regenerates FastSAM crop diagnostic visuals.
+- `scripts/live_area_engine.py`: reusable live M1/M3/M4 engine used by report generation.
 
 ## Methods / 方法
 
@@ -22,6 +23,10 @@ This module contains area-estimation evidence based on selected RDD images and G
 The formal report demo passes `M1`, `M3`, and `M4` to Qwen. `M2` is kept as evidence that FastSAM was explored but is not used as the formal report area input.
 
 正式报告 demo 会把 `M1`、`M3`、`M4` 传给 Qwen。`M2` 保留为 FastSAM 探索证据，不作为正式报告面积输入。
+
+For report generation, `M3` and `M4` are not packaged median-ratio estimates. The report module calls `scripts/live_area_engine.py`, runs Depth Anything V2 and Metric3D on the input image or representative video frame, then computes bbox-rectangle depth area with the same empirical bbox correction.
+
+报告生成阶段的 `M3` 和 `M4` 不是打包好的中位比例估计。报告模块会调用 `scripts/live_area_engine.py`，对输入图片或视频代表帧实际运行 Depth Anything V2 和 Metric3D，再用 bbox 矩形深度面积结合师哥经验 bbox 修正。
 
 ## Usage / 使用
 
@@ -56,3 +61,15 @@ The current default scale is `0.01 m/px`. No lane-line calibration is applied in
 The packaged FastSAM crop diagnostics are already generated. Re-running `scripts/build_crop_segmentation_quality.py` with text prompts requires the CLIP dependency used by Ultralytics FastSAM text prompting.
 
 当前 FastSAM crop 诊断图已经生成。若要重新运行 `scripts/build_crop_segmentation_quality.py` 并使用文本提示词，需要安装 Ultralytics FastSAM 文本提示所需的 CLIP 依赖。
+
+Live M3/M4 requires local Depth Anything V2 and Metric3D resources:
+
+真实运行 M3/M4 需要本地 Depth Anything V2 和 Metric3D 资源：
+
+- Depth Anything V2 repo: `area_experiments/area_measurement_v1/external/Depth-Anything-V2`
+- Depth Anything V2 checkpoint: `area_experiments/area_measurement_v1/checkpoints/depth_anything_v2_metric_vkitti_vits.pth`
+- Metric3D loader: `torch.hub.load("yvanyin/metric3d", "metric3d_vit_small", pretrain=True, trust_repo=True)`
+
+The live engine does not auto-install dependencies, does not silently download missing checkpoints, and does not fall back to median ratios. Missing resources are treated as errors.
+
+live engine 不会自动安装依赖，不会静默下载缺失权重，也不会退回中位比例估计。资源缺失时会直接报错。

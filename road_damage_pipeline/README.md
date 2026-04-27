@@ -34,11 +34,11 @@ YOLO 源码没有重复放进 `02_detection`，而是在仓库根目录的 `ultr
 - `05_report_generation` 只把结构化证据转成报告，不能编造检测、数量、面积或准确率。
 - 包含网络结构图、实验数据总表和前端启动方式的最终论文级 README，等论文内容稳定后再补。
 
-## Legacy Source / 旧目录说明
+## Canonical Package / 唯一工程入口
 
-`road_damage_video_pipeline/` is kept as a compatibility source while this package is being stabilized. New thesis-facing organization should use `road_damage_pipeline/`.
+`road_damage_pipeline/` is the canonical thesis pipeline package in this repository. Earlier development folders are not required to run the packaged demo.
 
-`road_damage_video_pipeline/` 暂时保留为兼容来源。之后论文展示、GitHub README 和前端页面都应优先引用 `road_damage_pipeline/`。
+`road_damage_pipeline/` 是本仓库的唯一毕设工程入口。早期开发目录不是运行当前打包 demo 的必要依赖。
 
 ## Environment / 环境
 
@@ -51,12 +51,12 @@ python -m pip install -r road_damage_pipeline/requirements.txt
 python -m pip install -e .
 ```
 
-If you use the existing local YOLO environment, run scripts with:
+Run scripts from the repository root after installing the package:
 
-如果复用当前本机 YOLO 环境，可使用：
+安装后，在仓库根目录运行脚本：
 
 ```bash
-video_damage_analytics/.conda-yolo311/bin/python road_damage_pipeline/03_video_dedup/scripts/infer_video.py --help
+python road_damage_pipeline/03_video_dedup/scripts/infer_video.py --help
 ```
 
 ## Smoke Test / 快速连通性测试

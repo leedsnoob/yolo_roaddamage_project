@@ -220,7 +220,7 @@ class AutoBackend(nn.Module):
                     if IS_JETSON and is_jetson(jetpack=5):
                         # Jetson Jetpack5 requires device before fuse https://github.com/ultralytics/ultralytics/pull/21028
                         model = model.to(device)
-                    model = model.fuse(verbose=verbose)
+                    model = model.fuse(verbose=False)
                 model = model.to(device)
             else:  # pt file
                 from ultralytics.nn.tasks import load_checkpoint

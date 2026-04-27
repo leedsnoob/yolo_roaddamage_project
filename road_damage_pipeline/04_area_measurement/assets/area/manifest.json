@@ -1,8 +1,9 @@
 {
-  "input_gt_csv": "/Users/tomchen/Downloads/source_only_clean_20260401/area_experiments/selected_rdd_test_lane_countries/final_selection/gt_bboxes_from_txt.csv",
-  "source_m1_m2_m3_csv": "/Users/tomchen/Downloads/source_only_clean_20260401/area_experiments/area_measurement_v1/area_results.csv",
-  "source_m4_csv": "/Users/tomchen/Downloads/source_only_clean_20260401/area_experiments/area_measurement_v1/metric3d_trial/metric3d_area_results.csv",
-  "output_root": "/Users/tomchen/Downloads/source_only_clean_20260401/road_damage_pipeline/04_area_measurement/assets/area",
+  "source_note": "Packaged thesis evidence. If the original local area_experiments directory is absent, scripts validate these packaged CSV and visual assets.",
+  "input_gt_csv": "road_damage_pipeline/04_area_measurement/samples/images/gt_bboxes_from_txt.csv",
+  "source_m1_m2_m3_csv": "area_experiments/area_measurement_v1/area_results.csv",
+  "source_m4_csv": "area_experiments/area_measurement_v1/metric3d_trial/metric3d_area_results.csv",
+  "output_root": "road_damage_pipeline/04_area_measurement/assets/area",
   "num_gt_boxes": 11,
   "num_method_rows": 44,
   "num_boards": 10,
@@ -13,7 +14,7 @@
     "M4_metric3d_empirical_bbox"
   ],
   "visuals": {
-    "summary_table": "/Users/tomchen/Downloads/source_only_clean_20260401/road_damage_pipeline/04_area_measurement/assets/area/visuals/four_method_summary_table.png",
-    "four_method_boards_dir": "/Users/tomchen/Downloads/source_only_clean_20260401/road_damage_pipeline/04_area_measurement/assets/area/visuals/four_method_boards"
+    "summary_table": "road_damage_pipeline/04_area_measurement/assets/area/visuals/four_method_summary_table.png",
+    "four_method_boards_dir": "road_damage_pipeline/04_area_measurement/assets/area/visuals/four_method_boards"
   }
 }

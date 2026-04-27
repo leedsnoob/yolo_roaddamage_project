@@ -18,7 +18,6 @@ import sys
 import time
 from collections import Counter, defaultdict
 from pathlib import Path
-from statistics import median
 from typing import Any
 
 cv2 = None
@@ -77,6 +76,10 @@ MODULE_ROOT, PIPELINE_ROOT, WORKSPACE_ROOT, DEFAULT_REPO_ROOT = resolve_roots()
 DETECTION_ROOT = PIPELINE_ROOT / "02_detection"
 VIDEO_ROOT = PIPELINE_ROOT / "03_video_dedup"
 AREA_ROOT = PIPELINE_ROOT / "04_area_measurement"
+AREA_SCRIPT_ROOT = AREA_ROOT / "scripts"
+if str(AREA_SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(AREA_SCRIPT_ROOT))
+from live_area_engine import BBoxSpec, LiveAreaEngine, build_config_from_args  # noqa: E402
 
 DEFAULT_MODEL = "Qwen/Qwen3-VL-30B-A3B-Thinking"
 API_URL = "https://api.siliconflow.cn/v1/chat/completions"
@@ -93,7 +96,6 @@ DEFAULT_VIDEO_RESULTS = (
     / "bytetrack"
     / "track_only"
 )
-AREA_WIDE_CSV = AREA_ROOT / "assets" / "area" / "four_method_area_results_wide.csv"
 
 CLASS_ID_TO_CODE = {0: "D00", 1: "D10", 2: "D20", 3: "D40"}
 CLASS_ID_TO_EN = {
@@ -170,93 +172,6 @@ def class_label(class_id: int, class_name: str = "") -> str:
     return f"{code} {readable}"
 
 
-def empirical_m1_area(class_id: int, width_px: float, height_px: float, scale_factor: float = 0.01) -> tuple[float, float, float]:
-    width_m = width_px * scale_factor
-    height_m = height_px * scale_factor
-    if int(class_id) == 0:
-        area_m2 = height_m * 0.8
-    elif int(class_id) == 1:
-        area_m2 = width_m * 1.2
-    elif int(class_id) in {2, 3}:
-        area_m2 = width_m * height_m / 3.0
-    else:
-        area_m2 = width_m * height_m / 3.0
-    return width_m, height_m, area_m2
-
-
-def load_area_ratio_priors(path: Path = AREA_WIDE_CSV) -> dict[str, dict[str, float]]:
-    """Use packaged M3/M4 experiment ratios as fast demo priors.
-
-    The full Depth Anything / Metric3D experiments are preserved in module 04.
-    For report demos we derive M3/M4 from M1 using per-class median ratios to
-    avoid re-running heavy depth models for hundreds of video events.
-    """
-    rows = read_csv(path)
-    grouped: dict[str, dict[str, list[float]]] = defaultdict(lambda: {"m3": [], "m4": []})
-    for row in rows:
-        cls = row["class_name"]
-        for key, column in (("m3", "M3_over_M1"), ("m4", "M4_over_M1")):
-            value = row.get(column, "").strip()
-            if value:
-                grouped[cls][key].append(float(value))
-
-    priors: dict[str, dict[str, float]] = {}
-    for cls, values in grouped.items():
-        priors[cls] = {
-            "m3_over_m1_median": float(median(values["m3"])) if values["m3"] else 1.0,
-            "m4_over_m1_median": float(median(values["m4"])) if values["m4"] else 1.0,
-        }
-    for class_id, code in CLASS_ID_TO_CODE.items():
-        priors.setdefault(code, {"m3_over_m1_median": 1.0, "m4_over_m1_median": 1.0})
-    return priors
-
-
-def area_estimates_for_bbox(class_id: int, xyxy: list[float], ratio_priors: dict[str, dict[str, float]]) -> list[dict[str, Any]]:
-    x1, y1, x2, y2 = xyxy
-    width_px = max(float(x2) - float(x1), 0.0)
-    height_px = max(float(y2) - float(y1), 0.0)
-    width_m, height_m, m1 = empirical_m1_area(class_id, width_px, height_px)
-    code = class_code(class_id)
-    ratios = ratio_priors.get(code, {"m3_over_m1_median": 1.0, "m4_over_m1_median": 1.0})
-    m3 = m1 * ratios["m3_over_m1_median"]
-    m4 = m1 * ratios["m4_over_m1_median"]
-    common = {
-        "width_px": round(width_px, 2),
-        "height_px": round(height_px, 2),
-        "width_m": round(width_m, 4),
-        "height_m": round(height_m, 4),
-        "scale_assumption": "fixed 0.01 m/px; no camera calibration or lane-line calibration in packaged demo",
-    }
-    return [
-        {
-            "method_id": "M1",
-            "method_name": "senior empirical bbox rule",
-            "estimated_area_m2": round(m1, 6),
-            "status": "success",
-            "limitation": "bbox-based empirical estimate, not physical GT",
-            **common,
-        },
-        {
-            "method_id": "M3",
-            "method_name": "Depth Anything V2 bbox-depth empirical ratio",
-            "estimated_area_m2": round(m3, 6),
-            "status": "packaged_ratio_demo",
-            "ratio_to_m1": round(ratios["m3_over_m1_median"], 6),
-            "limitation": "demo uses packaged per-class median M3/M1 ratio from module 04; rerun depth module for full per-image depth",
-            **common,
-        },
-        {
-            "method_id": "M4",
-            "method_name": "Metric3D bbox-depth empirical ratio",
-            "estimated_area_m2": round(m4, 6),
-            "status": "packaged_ratio_demo",
-            "ratio_to_m1": round(ratios["m4_over_m1_median"], 6),
-            "limitation": "demo uses packaged per-class median M4/M1 ratio from module 04; rerun Metric3D module for full per-image depth",
-            **common,
-        },
-    ]
-
-
 def draw_box(frame, xyxy: list[float], class_id: int, label: str) -> None:
     cv2_mod = require_cv2()
     x1, y1, x2, y2 = [int(round(v)) for v in xyxy]
@@ -307,7 +222,14 @@ def resolve_device(device: str) -> str:
     return "cpu"
 
 
-def run_image_detection(args: argparse.Namespace, out_dir: Path, ratio_priors: dict[str, dict[str, float]]) -> dict[str, Any]:
+def build_live_area_engine(args: argparse.Namespace) -> LiveAreaEngine:
+    try:
+        return LiveAreaEngine(build_config_from_args(args))
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(f"Live depth area engine failed to initialize: {type(exc).__name__}: {exc}") from exc
+
+
+def run_image_detection(args: argparse.Namespace, out_dir: Path, area_engine: LiveAreaEngine) -> dict[str, Any]:
     cv2_mod = require_cv2()
     YOLO = setup_ultralytics(args.repo_root)
     model = YOLO(str(args.weights))
@@ -336,17 +258,35 @@ def run_image_detection(args: argparse.Namespace, out_dir: Path, ratio_priors: d
             xyxy_list = result.boxes.xyxy.cpu().tolist()
             conf_list = result.boxes.conf.cpu().tolist()
             cls_list = result.boxes.cls.int().cpu().tolist()
+            box_specs: list[BBoxSpec] = []
+            pending: list[dict[str, Any]] = []
             for det_idx, (xyxy, conf, cls_id) in enumerate(zip(xyxy_list, conf_list, cls_list)):
                 cls_id = int(cls_id)
-                areas = area_estimates_for_bbox(cls_id, [float(v) for v in xyxy], ratio_priors)
+                bbox = [float(v) for v in xyxy]
+                detection_id = f"{image_path.stem}-det-{det_idx}"
+                box_specs.append(
+                    BBoxSpec(
+                        item_id=detection_id,
+                        class_id=cls_id,
+                        class_name=CLASS_ID_TO_EN.get(cls_id, str(cls_id)),
+                        confidence=float(conf),
+                        bbox_xyxy=bbox,
+                    )
+                )
+                pending.append({"detection_id": detection_id, "xyxy": bbox, "conf": float(conf), "cls_id": cls_id})
+
+            area_by_id = area_engine.estimate_image(image_path, box_specs)
+            for det in pending:
+                cls_id = det["cls_id"]
+                areas = area_by_id[det["detection_id"]]
                 item = {
-                    "detection_id": f"{image_path.stem}-det-{det_idx}",
+                    "detection_id": det["detection_id"],
                     "image_name": image_path.name,
                     "class_id": cls_id,
                     "class_code": class_code(cls_id),
                     "class_name": CLASS_ID_TO_EN.get(cls_id, str(cls_id)),
-                    "confidence": round(float(conf), 4),
-                    "bbox_xyxy": [round(float(v), 2) for v in xyxy],
+                    "confidence": round(det["conf"], 4),
+                    "bbox_xyxy": [round(float(v), 2) for v in det["xyxy"]],
                     "area_estimates": areas,
                 }
                 detections.append(item)
@@ -361,13 +301,15 @@ def run_image_detection(args: argparse.Namespace, out_dir: Path, ratio_priors: d
                         "M1_area_m2": areas[0]["estimated_area_m2"],
                         "M3_area_m2": areas[1]["estimated_area_m2"],
                         "M4_area_m2": areas[2]["estimated_area_m2"],
+                        "M3_status": areas[1]["status"],
+                        "M4_status": areas[2]["status"],
                     }
                 )
                 draw_box(
                     image,
-                    [float(v) for v in xyxy],
+                    det["xyxy"],
                     cls_id,
-                    f"{class_code(cls_id)} {float(conf):.2f}",
+                    f"{class_code(cls_id)} {det['conf']:.2f}",
                 )
         pred_path = pred_dir / f"{image_path.stem}_pred.jpg"
         cv2_mod.imwrite(str(pred_path), image)
@@ -399,6 +341,13 @@ def run_image_detection(args: argparse.Namespace, out_dir: Path, ratio_priors: d
             "iou_threshold": args.iou,
             "imgsz": args.imgsz,
             "device_actual": device,
+        },
+        "area_estimation": {
+            "methods": ["M1_empirical_bbox", "M3_depth_anything_v2_empirical_bbox", "M4_metric3d_empirical_bbox"],
+            "mode": "live_depth",
+            "depth_anything_checkpoint": str(area_engine.config.depth_checkpoint),
+            "depth_anything_repo": str(area_engine.config.depth_repo),
+            "metric3d_model": area_engine.config.metric3d_model,
         },
         "damage_summary": {
             "total_detections": len(detection_rows),
@@ -509,7 +458,75 @@ def save_frame_with_detections(
     }
 
 
-def build_video_report_input(args: argparse.Namespace, out_dir: Path, ratio_priors: dict[str, dict[str, float]]) -> dict[str, Any]:
+def extract_raw_frame(video_path: Path, frame_idx: int, out_path: Path) -> Path:
+    cv2_mod = require_cv2()
+    cap = cv2_mod.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        raise RuntimeError(f"Failed to open video: {video_path}")
+    cap.set(cv2_mod.CAP_PROP_POS_FRAMES, frame_idx)
+    ok, frame = cap.read()
+    cap.release()
+    if not ok:
+        raise RuntimeError(f"Failed to extract raw frame {frame_idx} from {video_path}")
+    ensure_dir(out_path.parent)
+    cv2_mod.imwrite(str(out_path), frame)
+    return out_path
+
+
+def select_representative_event_detections(
+    event_rows: list[dict[str, str]],
+    detection_rows: list[dict[str, str]],
+    top_k: int,
+) -> list[dict[str, Any]]:
+    best_detection: dict[tuple[int, int], dict[str, str]] = {}
+    for row in detection_rows:
+        key = (int(float(row["track_id"])), int(row["class_id"]))
+        current = best_detection.get(key)
+        if current is None or float(row["confidence"]) > float(current["confidence"]):
+            best_detection[key] = row
+
+    candidates: list[dict[str, Any]] = []
+    for row in event_rows:
+        cls_id = class_id_from_any(row.get("class_id"), row.get("class_name", ""))
+        track_id = int(float(row["track_id"]))
+        det = best_detection.get((track_id, cls_id))
+        if det is not None:
+            bbox = [float(det[key]) for key in ("x1", "y1", "x2", "y2")]
+            frame_idx = int(det["frame_idx"])
+            confidence = float(det["confidence"])
+        else:
+            bbox = parse_bbox(row["best_bbox_xyxy"])
+            frame_idx = int(row["first_frame"])
+            confidence = float(row["max_confidence"])
+        candidates.append(
+            {
+                "event_row": row,
+                "class_id": cls_id,
+                "track_id": track_id,
+                "frame_idx": frame_idx,
+                "confidence": confidence,
+                "bbox_xyxy": bbox,
+            }
+        )
+
+    ordered = sorted(candidates, key=lambda item: (-item["confidence"], item["frame_idx"]))
+    selected: list[dict[str, Any]] = []
+    min_gap = 60
+    for item in ordered:
+        if all(abs(item["frame_idx"] - existing["frame_idx"]) >= min_gap for existing in selected):
+            selected.append(item)
+        if len(selected) >= top_k:
+            break
+    if len(selected) < top_k:
+        for item in ordered:
+            if item not in selected:
+                selected.append(item)
+            if len(selected) >= top_k:
+                break
+    return selected
+
+
+def build_video_report_input(args: argparse.Namespace, out_dir: Path, area_engine: LiveAreaEngine) -> dict[str, Any]:
     result_dir = run_or_reuse_video_results(args, out_dir)
     summary = json.loads((result_dir / "summary.json").read_text(encoding="utf-8"))
     detection_rows = read_csv(result_dir / "detections.csv")
@@ -517,27 +534,52 @@ def build_video_report_input(args: argparse.Namespace, out_dir: Path, ratio_prio
     fps = float(summary.get("fps") or 25.0)
 
     frame_dir = ensure_dir(out_dir / "representative_frames")
-    selected_frames = select_representative_frames(detection_rows, args.representative_frames)
+    raw_frame_dir = ensure_dir(out_dir / "representative_raw_frames")
     rows_by_frame: dict[int, list[dict[str, str]]] = defaultdict(list)
     for row in detection_rows:
         rows_by_frame[int(row["frame_idx"])].append(row)
-    representative_frames = [
-        save_frame_with_detections(
+    selected_event_dets = select_representative_event_detections(event_rows, detection_rows, args.representative_frames)
+
+    representative_frames = []
+    representative_area_by_event: dict[str, list[dict[str, Any]]] = {}
+    for index, selected in enumerate(selected_event_dets):
+        event_row = selected["event_row"]
+        frame_idx = int(selected["frame_idx"])
+        raw_frame_path = extract_raw_frame(args.video, frame_idx, raw_frame_dir / f"event_{index + 1:02d}_frame_{frame_idx:06d}.jpg")
+        annotated_frame = save_frame_with_detections(
             args.video,
             frame_idx,
             rows_by_frame[frame_idx],
-            frame_dir / f"frame_{frame_idx:06d}.jpg",
+            frame_dir / f"event_{index + 1:02d}_frame_{frame_idx:06d}.jpg",
             fps,
         )
-        for frame_idx in selected_frames
-    ]
+        item_id = str(event_row["event_id"])
+        spec = BBoxSpec(
+            item_id=item_id,
+            class_id=int(selected["class_id"]),
+            class_name=str(event_row["class_name"]),
+            confidence=float(selected["confidence"]),
+            bbox_xyxy=[float(v) for v in selected["bbox_xyxy"]],
+        )
+        representative_area_by_event[item_id] = area_engine.estimate_image(raw_frame_path, [spec])[item_id]
+        annotated_frame.update(
+            {
+                "representative_event_id": item_id,
+                "representative_track_id": int(selected["track_id"]),
+                "representative_confidence": round(float(selected["confidence"]), 4),
+                "representative_bbox_xyxy": [round(float(v), 2) for v in selected["bbox_xyxy"]],
+                "raw_frame": str(raw_frame_path),
+                "area_estimates": representative_area_by_event[item_id],
+            }
+        )
+        representative_frames.append(annotated_frame)
 
     events: list[dict[str, Any]] = []
     event_area_rows: list[dict[str, Any]] = []
     for row in event_rows:
         cls_id = class_id_from_any(row.get("class_id"), row.get("class_name", ""))
         bbox = parse_bbox(row["best_bbox_xyxy"])
-        areas = area_estimates_for_bbox(cls_id, bbox, ratio_priors)
+        areas = representative_area_by_event.get(row["event_id"], [])
         event = {
             "event_id": row["event_id"],
             "track_id": int(row["track_id"]),
@@ -552,20 +594,24 @@ def build_video_report_input(args: argparse.Namespace, out_dir: Path, ratio_prio
             "max_confidence": float(row["max_confidence"]),
             "best_bbox_xyxy": [round(float(v), 2) for v in bbox],
             "area_estimates": areas,
+            "area_status": "live_depth_success" if areas else "not_computed_for_non_representative_video_event",
         }
         events.append(event)
-        event_area_rows.append(
-            {
-                "event_id": event["event_id"],
-                "class_code": event["class_code"],
-                "class_name": event["class_name"],
-                "track_id": event["track_id"],
-                "max_confidence": event["max_confidence"],
-                "M1_area_m2": areas[0]["estimated_area_m2"],
-                "M3_area_m2": areas[1]["estimated_area_m2"],
-                "M4_area_m2": areas[2]["estimated_area_m2"],
-            }
-        )
+        if areas:
+            event_area_rows.append(
+                {
+                    "event_id": event["event_id"],
+                    "class_code": event["class_code"],
+                    "class_name": event["class_name"],
+                    "track_id": event["track_id"],
+                    "max_confidence": event["max_confidence"],
+                    "M1_area_m2": areas[0]["estimated_area_m2"],
+                    "M3_area_m2": areas[1]["estimated_area_m2"],
+                    "M4_area_m2": areas[2]["estimated_area_m2"],
+                    "M3_status": areas[1]["status"],
+                    "M4_status": areas[2]["status"],
+                }
+            )
     events.sort(key=lambda item: (-item["max_confidence"], item["first_frame"]))
     write_csv(out_dir / "event_area_estimates.csv", event_area_rows)
 
@@ -589,6 +635,14 @@ def build_video_report_input(args: argparse.Namespace, out_dir: Path, ratio_prio
             "iou_threshold": args.iou,
             "imgsz": args.imgsz,
             "device_actual": summary.get("device_actual", ""),
+        },
+        "area_estimation": {
+            "methods": ["M1_empirical_bbox", "M3_depth_anything_v2_empirical_bbox", "M4_metric3d_empirical_bbox"],
+            "mode": "live_depth_representative_events_only",
+            "num_events_with_area": len(event_area_rows),
+            "depth_anything_checkpoint": str(area_engine.config.depth_checkpoint),
+            "depth_anything_repo": str(area_engine.config.depth_repo),
+            "metric3d_model": area_engine.config.metric3d_model,
         },
         "damage_summary": {
             "total_detections": int(summary.get("total_detections", len(detection_rows))),
@@ -620,7 +674,7 @@ def standard_limitations() -> list[str]:
         "Only model-predicted bounding boxes are used as report evidence; RDD ground-truth boxes are not provided to the VLM.",
         "Confidence is model confidence, not accuracy. Accuracy requires manually labeled evaluation data.",
         "All area values are estimated areas. No camera calibration, lane-line calibration, or physical area ground truth is available in this demo.",
-        "M3/M4 report demo values are derived from packaged area-module depth/Metric3D ratios for speed; rerun module 04 for full per-image depth inference.",
+        "M3/M4 are live depth-based estimates over bbox rectangles with assumed FOV; they are not physical ground truth.",
         "Maintenance suggestions are decision support only and are not final engineering diagnosis.",
     ]
 
@@ -739,6 +793,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tracker-backend", default="bytetrack", choices=["bytetrack", "botsort", "deepocsort"])
     parser.add_argument("--max-images", type=int, default=4)
     parser.add_argument("--representative-frames", type=int, default=3)
+    parser.add_argument("--scale-factor", type=float, default=0.01)
+    parser.add_argument("--assumed-horizontal-fov-deg", type=float, default=70.0)
+    parser.add_argument("--depth-repo", type=Path, default=None)
+    parser.add_argument("--depth-checkpoint", type=Path, default=None)
+    parser.add_argument("--depth-input-size", type=int, default=518)
+    parser.add_argument("--metric3d-model", default="metric3d_vit_small")
+    parser.add_argument("--metric3d-input-height", type=int, default=616)
+    parser.add_argument("--metric3d-input-width", type=int, default=1064)
     parser.add_argument("--max-prompt-events", type=int, default=30)
     parser.add_argument("--qwen-model", default=DEFAULT_MODEL)
     parser.add_argument("--temperature", type=float, default=0.2)
@@ -754,12 +816,17 @@ def main() -> int:
     args = parse_args()
     start = time.time()
     demo_dir = ensure_dir(args.output_root / f"{args.mode}_demo")
-    ratio_priors = load_area_ratio_priors()
+    try:
+        area_engine = build_live_area_engine(args)
+    except RuntimeError as exc:
+        (demo_dir / "report.md").write_text(f"Report generation failed before evidence build: {exc}\n", encoding="utf-8")
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
 
     if args.mode == "image":
-        report_input = run_image_detection(args, demo_dir, ratio_priors)
+        report_input = run_image_detection(args, demo_dir, area_engine)
     else:
-        report_input = build_video_report_input(args, demo_dir, ratio_priors)
+        report_input = build_video_report_input(args, demo_dir, area_engine)
 
     report_input["inspection_id"] = f"{args.mode}_demo_{int(start)}"
     report_input["report_generation"] = {
