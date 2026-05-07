@@ -1,6 +1,6 @@
 # Road Damage Inspection Pipeline
 
-This repository contains the runnable code package and final dissertation PDF for an end-to-end road-damage inspection project. The project connects object detection, video event deduplication, assumption-based area estimation, and Qwen3-VL report generation in a local inspection workflow.
+This repository contains the runnable code package and final dissertation PDF for an end-to-end road-damage inspection project. The project connects object detection, video event deduplication, estimated damage-area calculation, and Qwen3-VL report generation in a local inspection workflow.
 
 ## Dissertation
 
@@ -48,15 +48,84 @@ The modules are kept separate so that detector outputs, event summaries, area es
 | `05_report_generation` | Evidence-grounded Qwen3-VL inspection report generation through SiliconFlow. |
 | `web` | FastAPI backend and React/Vite frontend for local image/video inspection. |
 
-## Main Findings Reported in the Dissertation
+## Dissertation Results
 
-- PIDRoad-style preprocessing improves the matched processed test view, but the final runtime path starts from object detection because damage boxes are not available before inference.
-- Detector improvements are scale- and class-dependent. Dynamic+Strip+WIoU gives the strongest `n`-scale `mAP50` in the main comparison (`0.649`), while RG11+DCNv2+BiFPN is strongest at `s` scale (`mAP50=0.667`, `mAP50-95=0.366`).
-- `m`-scale experiments do not show that larger capacity alone improves road-damage detection. Standard RG11 `m` reaches `mAP50=0.662`, below the best `s`-scale result, while open deep-channel `m` variants give only small route-relative gains.
-- Japan fine-tuning provides a separate target-country check. Dynamic+Strip+WIoU improves the Japan fine-tuning `mAP50` from `0.601` to `0.619`, while recall decreases from `0.605` to `0.580`.
-- Video deduplication is evaluated as an engineering case study without event-level ground truth. ByteTrack is fastest in the recorded case (`11.019 FPS`), while DeepOC-SORT-lite produces fewer unique events and lower fragmentation at a speed cost.
-- Area values are assumption-based estimates derived from predicted boxes, fixed scale/FOV settings, and monocular depth cues. Physical interpretation would require camera or lane calibration.
-- Qwen3-VL is used downstream of structured evidence. It writes inspection-style reports from detection, event, and area records rather than performing detection itself.
+The tables below reproduce the main numerical results reported in the dissertation. See [`finalReport.pdf`](finalReport.pdf) for the full protocol, citations, figures, ablation discussion, and limitations.
+
+### Dataset Protocols
+
+| Protocol | Train images | Validation images | Test images | Role |
+|---|---:|---:|---:|---|
+| Filtered original-image multi-country protocol | 16,259 | 3,399 | 3,414 | Main detector comparison |
+| Filtered Japan original-image protocol | 6,684 | 1,378 | 1,359 | Country-specific fine-tuning and validation |
+
+The main detector protocol uses the vehicle/street-view labelled subset so that the comparison focuses on visible road-damage localisation and classification in the targeted inspection setting.
+
+### Main Detector Comparison
+
+Params are in millions and FLOPs are in GFLOPs. Rows inside the `n` and `s` blocks follow the dissertation ordering by `mAP50`.
+
+| Model family | Scale | Params | FLOPs | Precision | Recall | mAP50 | mAP50-95 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Faster R-CNN | - | 41.4 | 134.5 | - | - | 0.598 | 0.291 |
+| RT-DETRv2 | s | 20.0 | 60.0 | - | 0.630 | 0.645 | 0.357 |
+| Dynamic+Strip+WIoU | n | 3.2 | 13.3 | 0.679 | 0.609 | **0.649** | 0.357 |
+| RG11 | n | 3.1 | 13.2 | 0.664 | **0.616** | 0.647 | 0.354 |
+| RG11+Strip+WIoU | n | 3.2 | 13.3 | 0.672 | 0.604 | 0.646 | **0.358** |
+| RG11+DCNv2+BiFPN | n | 3.1 | 12.9 | **0.684** | 0.602 | 0.645 | 0.355 |
+| YOLO11 | n | 2.6 | 6.3 | 0.661 | 0.602 | 0.636 | 0.350 |
+| YOLOv8 | n | 3.0 | 8.1 | 0.652 | 0.600 | 0.630 | 0.338 |
+| RG11+DCNv2+BiFPN | s | 11.4 | 47.2 | 0.690 | 0.621 | **0.667** | **0.366** |
+| Dynamic+Strip+WIoU | s | 11.8 | 48.8 | **0.691** | 0.617 | 0.660 | **0.366** |
+| RG11 | s | 11.7 | 48.4 | 0.690 | 0.621 | 0.659 | 0.364 |
+| RG11+Strip+WIoU | s | 11.8 | 48.8 | 0.676 | **0.631** | 0.659 | 0.365 |
+| YOLO11 | s | 9.4 | 21.3 | 0.660 | 0.624 | 0.658 | 0.361 |
+| YOLOv8 | s | 11.1 | 28.4 | 0.660 | 0.617 | 0.644 | 0.350 |
+
+### Standard and Open Deep-channel `m` Variants
+
+The `m`-scale experiments test whether additional capacity improves the detector. The results do not show a general capacity-driven improvement over the best `s`-scale result.
+
+| Branch | Setting | P3/P4/P5 channels | Params | FLOPs | Precision | Recall | mAP50 | mAP50-95 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| RG11 | Standard `m` | 256/512/512 | 24.2 | 167.4 | **0.682** | 0.626 | **0.662** | **0.364** |
+| RG11 | Open `m` | 128/256/1024 | 31.6 | 73.4 | **0.695** | 0.619 | **0.664** | **0.367** |
+| RG11+DCNv2+BiFPN | Standard `m` | 256/512/512 | 23.9 | 162.8 | 0.673 | 0.617 | 0.655 | 0.361 |
+| RG11+DCNv2+BiFPN | Open `m` | 128/256/1024 | 30.6 | 71.5 | 0.691 | 0.621 | 0.662 | 0.365 |
+| RG11+Strip+WIoU | Standard `m` | 256/512/512 | 24.5 | 168.3 | - | - | - | - |
+| RG11+Strip+WIoU | Open `m` | 128/256/1024 | 32.1 | 73.9 | 0.680 | **0.625** | 0.658 | 0.364 |
+| Dynamic+Strip+WIoU | Standard `m` | 256/512/512 | 24.5 | 168.3 | 0.671 | **0.633** | 0.657 | 0.362 |
+| Dynamic+Strip+WIoU | Open `m` | 128/256/1024 | 32.1 | 73.9 | 0.683 | 0.624 | 0.660 | 0.364 |
+
+### Japan Fine-tuning
+
+The Japan-only protocol is a target-country check using the corresponding multi-country weights as the starting point.
+
+| Model | Precision | Recall | mAP50 | mAP50-95 | Delta mAP50 |
+|---|---:|---:|---:|---:|---:|
+| Japan FT RG11 original `n` | 0.609 | **0.605** | 0.601 | 0.296 | 0.000 |
+| Japan FT DCNv2+BiFPN `n` | 0.603 | 0.597 | 0.595 | 0.297 | -0.006 |
+| Japan FT Strip+WIoU `n` | 0.607 | 0.599 | 0.599 | 0.296 | -0.002 |
+| Japan FT Dynamic+Strip+WIoU `n` | **0.652** | 0.580 | **0.619** | **0.308** | **+0.018** |
+
+### Video Deduplication Case Study
+
+The video experiment uses a one-minute PathCare road-fault segment. It is an engineering comparison using proxy metrics because event-level video ground truth is not available.
+
+| Tracker | FPS | Detections | Events | Fragmentation | Hits/event |
+|---|---:|---:|---:|---:|---:|
+| ByteTrack | **11.019** | 728 | 582 | 218 | 1.251 |
+| BoT-SORT | 8.957 | 741 | 627 | 335 | 1.182 |
+| DeepOC-SORT-lite | 7.602 | 809 | **430** | **33** | **1.881** |
+
+### System-level Validation Examples
+
+| Input type | Recorded evidence | Output checked |
+|---|---|---|
+| Single-image report | 1 image, 4 predicted D00 detections | Bbox visualisation, depth visualisations, area summary, and generated inspection report |
+| Video report | 60.018 s video, 1,439 frames, 728 detections, 582 ByteTrack events | Track-event summary, representative frames, event-level area summaries, and generated video report |
+
+Area figures in the report are estimates calculated from predicted boxes, fixed scale and field-of-view settings, and monocular depth cues. Measured physical damage areas are outside the available project evidence. Qwen3-VL is used downstream of structured evidence; it writes inspection-style reports from detection, event, and area records rather than performing detection itself.
 
 ## Install
 
@@ -103,8 +172,8 @@ The most important interpretation limits are:
 
 - detector results depend on the stated dataset split, scale, and protocol;
 - video deduplication results use proxy metrics because event-level video ground truth is not available;
-- area outputs are assumption-based estimates and require calibration before physical interpretation;
-- Qwen3-VL report text remains a human-review aid and should be checked against upstream structured evidence.
+- area outputs are estimates under the stated scale and field-of-view settings, with calibrated physical measurement outside the project evidence;
+- Qwen3-VL report text is a human-review aid that needs checking against upstream structured evidence.
 
 ## License
 
