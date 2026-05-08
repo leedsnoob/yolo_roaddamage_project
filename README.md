@@ -88,14 +88,14 @@ The `m`-scale experiments test whether additional capacity improves the detector
 
 | Branch | Setting | P3/P4/P5 channels | Params | FLOPs | Precision | Recall | mAP50 | mAP50-95 |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| RG11 | Standard `m` | 256/512/512 | 24.2 | 167.4 | **0.682** | 0.626 | **0.662** | **0.364** |
+| RG11 | Standard `m` | 256/512/512 | 24.2 | 167.4 | 0.682 | **0.626** | 0.662 | 0.364 |
 | RG11 | Open `m` | 128/256/1024 | 31.6 | 73.4 | **0.695** | 0.619 | **0.664** | **0.367** |
 | RG11+DCNv2+BiFPN | Standard `m` | 256/512/512 | 23.9 | 162.8 | 0.673 | 0.617 | 0.655 | 0.361 |
-| RG11+DCNv2+BiFPN | Open `m` | 128/256/1024 | 30.6 | 71.5 | 0.691 | 0.621 | 0.662 | 0.365 |
+| RG11+DCNv2+BiFPN | Open `m` | 128/256/1024 | 30.6 | 71.5 | **0.691** | **0.621** | **0.662** | **0.365** |
 | RG11+Strip+WIoU | Standard `m` | 256/512/512 | 24.5 | 168.3 | - | - | - | - |
 | RG11+Strip+WIoU | Open `m` | 128/256/1024 | 32.1 | 73.9 | 0.680 | **0.625** | 0.658 | 0.364 |
 | Dynamic+Strip+WIoU | Standard `m` | 256/512/512 | 24.5 | 168.3 | 0.671 | **0.633** | 0.657 | 0.362 |
-| Dynamic+Strip+WIoU | Open `m` | 128/256/1024 | 32.1 | 73.9 | 0.683 | 0.624 | 0.660 | 0.364 |
+| Dynamic+Strip+WIoU | Open `m` | 128/256/1024 | 32.1 | 73.9 | **0.683** | 0.624 | **0.660** | **0.364** |
 
 ### Japan Fine-tuning
 
