@@ -37,7 +37,7 @@ class PipelineRunner:
             job.mark_step("segmentation", "skipped", "Live segmentation exploration is image-only in v1")
             return
 
-        job.mark_step("segmentation", "running", "Running live PIDNet road segmentation for uploaded image")
+        job.mark_step("segmentation", "running", "Running live PIDNet road segmentation for uploaded image", progress=5)
         target = job.output_dir / "segmentation_exploration"
         if target.exists():
             shutil.rmtree(target)
@@ -77,10 +77,17 @@ class PipelineRunner:
         normalized_image = image_dir / f"{job.input_path.stem}.jpg"
         self._normalize_image(job.input_path, normalized_image)
 
-        job.mark_step("detection", "running", "Running image detection, area estimation and report evidence build")
+        job.mark_step("detection", "running", "Running YOLO image detection and building report evidence", progress=5)
         job.mark_step("dedup", "skipped", "Image job does not require video deduplication")
-        job.mark_step("area", "running", "Waiting for live M1/M3/M4 area outputs")
-        job.mark_step("report", "running" if job.options.call_api else "skipped", "Report API enabled" if job.options.call_api else "API disabled; request preview only")
+        job.mark_step("area", "running", "Waiting for live bbox-geometry and depth-assisted area outputs", progress=1)
+        job.mark_step(
+            "report",
+            "running" if job.options.call_api else "skipped",
+            "Qwen API requested; waiting for structured evidence"
+            if job.options.call_api
+            else "Qwen API call is disabled for this job; only local evidence and request preview will be written",
+            progress=1 if job.options.call_api else 100,
+        )
 
         command = self._report_command(job, mode="image") + [
             "--image-dir",
@@ -92,10 +99,17 @@ class PipelineRunner:
         self._update_from_report_output(job, job.output_dir / "image_demo", result)
 
     def _run_video_job(self, job: JobState) -> None:
-        job.mark_step("detection", "running", "Running video detection and tracker")
-        job.mark_step("dedup", "running", f"Running {job.options.tracker_backend} track-id deduplication")
-        job.mark_step("area", "running", "Estimating area for representative events")
-        job.mark_step("report", "running" if job.options.call_api else "skipped", "Report API enabled" if job.options.call_api else "API disabled; request preview only")
+        job.mark_step("detection", "running", "Running YOLO video detection", progress=3)
+        job.mark_step("dedup", "running", f"Running {job.options.tracker_backend} track-id deduplication", progress=1)
+        job.mark_step("area", "running", "Estimating area for representative events", progress=1)
+        job.mark_step(
+            "report",
+            "running" if job.options.call_api else "skipped",
+            "Qwen API requested; waiting for video evidence"
+            if job.options.call_api
+            else "Qwen API call is disabled for this job; only local evidence and request preview will be written",
+            progress=1 if job.options.call_api else 100,
+        )
 
         command = self._report_command(job, mode="video") + [
             "--video",
@@ -111,7 +125,11 @@ class PipelineRunner:
     def _report_command(self, job: JobState, mode: str) -> list[str]:
         call_api_enabled = job.options.call_api and bool(os.getenv("SILICONFLOW_API_KEY"))
         if job.options.call_api and not call_api_enabled:
-            job.summary["api_warning"] = "SILICONFLOW_API_KEY is not set; generated request preview only."
+            job.summary["api_warning"] = (
+                "Real Qwen report was requested, but the backend process cannot see SILICONFLOW_API_KEY. "
+                "Set SILICONFLOW_API_KEY or provide a local apikey.txt before starting the backend, then submit a new job. "
+                "This job will only generate qwen_request_preview.json."
+            )
         command = [
             self.settings.pipeline_python,
             str(self.settings.pipeline_root / "05_report_generation" / "scripts" / "report_pipeline.py"),
@@ -155,32 +173,54 @@ class PipelineRunner:
             env=env,
             text=True,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            bufsize=1,
         )
-        stdout = ""
-        stderr = ""
+        stdout_parts: list[str] = []
+        last_refresh = time.time()
         while True:
-            try:
-                stdout, stderr = process.communicate(timeout=1.0)
+            line = process.stdout.readline() if process.stdout is not None else ""
+            if line:
+                stdout_parts.append(line)
+                if job is not None:
+                    self._handle_pipeline_event_line(job, line)
+            elif process.poll() is not None:
                 break
-            except subprocess.TimeoutExpired:
-                if job is not None and demo_dir is not None:
-                    self._refresh_partial_progress(job, demo_dir)
+            else:
                 time.sleep(0.1)
-        result = subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+            if job is not None and demo_dir is not None and time.time() - last_refresh >= 1.0:
+                self._refresh_partial_progress(job, demo_dir)
+                last_refresh = time.time()
+        stdout = "".join(stdout_parts)
+        result = subprocess.CompletedProcess(command, process.returncode, stdout, "")
         log_path = cwd / "pipeline_subprocess.log"
         log_path.write_text(
-            "COMMAND:\n"
-            + " ".join(command)
-            + "\n\nSTDOUT:\n"
-            + result.stdout
-            + "\n\nSTDERR:\n"
-            + result.stderr,
+            "COMMAND:\n" + " ".join(command) + "\n\nSTDOUT:\n" + result.stdout,
             encoding="utf-8",
         )
         if result.returncode != 0:
             raise PipelineRunError(f"Pipeline command failed with code {result.returncode}. See {log_path}")
         return result
+
+    def _handle_pipeline_event_line(self, job: JobState, line: str) -> None:
+        prefix = "PIPELINE_EVENT "
+        if prefix not in line:
+            return
+        payload_text = line.split(prefix, 1)[1].strip()
+        try:
+            payload = json.loads(payload_text)
+        except json.JSONDecodeError:
+            return
+        step = str(payload.get("step", ""))
+        if step not in job.steps:
+            return
+        progress = int(payload.get("progress", job.steps[step].progress))
+        message = str(payload.get("message", ""))
+        status = payload.get("status")
+        if status in {"pending", "running", "done", "failed", "skipped"}:
+            job.mark_step(step, status, message or job.steps[step].message, progress=progress)
+        else:
+            job.update_step_progress(step, progress, message or None)
 
     def _refresh_partial_progress(self, job: JobState, demo_dir: Path) -> None:
         """Update UI-visible step state while the report subprocess is still running."""

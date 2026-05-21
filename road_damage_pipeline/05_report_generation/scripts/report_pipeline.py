@@ -150,6 +150,14 @@ def write_json(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+def emit_pipeline_event(step: str, progress: int, message: str, status: str | None = None) -> None:
+    """Emit machine-readable progress for the Web job runner."""
+    payload: dict[str, Any] = {"step": step, "progress": int(progress), "message": message}
+    if status:
+        payload["status"] = status
+    print("PIPELINE_EVENT " + json.dumps(payload, ensure_ascii=False), flush=True)
+
+
 def parse_bbox(value: str | list[float]) -> list[float]:
     if isinstance(value, list):
         return [float(v) for v in value]
@@ -252,6 +260,7 @@ def resolve_device(device: str) -> str:
 
 def build_live_area_engine(args: argparse.Namespace) -> LiveAreaEngine:
     try:
+        emit_pipeline_event("area", 3, "Loading Depth Anything V2 and Metric3D resources")
         return LiveAreaEngine(build_config_from_args(args))
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError(f"Live depth area engine failed to initialize: {type(exc).__name__}: {exc}") from exc
@@ -259,22 +268,29 @@ def build_live_area_engine(args: argparse.Namespace) -> LiveAreaEngine:
 
 def run_image_detection(args: argparse.Namespace, out_dir: Path, area_engine: LiveAreaEngine) -> dict[str, Any]:
     cv2_mod = require_cv2()
+    emit_pipeline_event("detection", 8, "Loading YOLO detector")
     YOLO = setup_ultralytics(args.repo_root)
     model = YOLO(str(args.weights))
     device = resolve_device(args.device)
     image_paths = sorted(args.image_dir.glob("*.jpg"))[: args.max_images]
     if not image_paths:
         raise FileNotFoundError(f"No jpg images found in {args.image_dir}")
+    emit_pipeline_event("detection", 18, f"YOLO detector loaded on {device}; {len(image_paths)} image(s) queued")
 
     pred_dir = ensure_dir(out_dir / "predicted_images")
     area_visual_dir = ensure_dir(out_dir / "area_visuals")
     detection_rows: list[dict[str, Any]] = []
     area_rows: list[dict[str, Any]] = []
     image_items: list[dict[str, Any]] = []
-    for image_path in image_paths:
+    for image_index, image_path in enumerate(image_paths):
         image = cv2_mod.imread(str(image_path))
         if image is None:
             continue
+        emit_pipeline_event(
+            "detection",
+            20 + int(40 * image_index / max(len(image_paths), 1)),
+            f"Running detector on {image_path.name}",
+        )
         result = model.predict(
             image,
             conf=args.conf,
@@ -306,6 +322,11 @@ def run_image_detection(args: argparse.Namespace, out_dir: Path, area_engine: Li
                 )
                 pending.append({"detection_id": detection_id, "xyxy": bbox, "conf": float(conf), "cls_id": cls_id})
 
+            emit_pipeline_event(
+                "area",
+                20 + int(55 * image_index / max(len(image_paths), 1)),
+                f"Estimating bbox and depth-assisted areas for {image_path.name}",
+            )
             area_by_id, area_visuals = area_engine.estimate_image_with_visuals(image_path, box_specs, area_visual_dir)
             for det in pending:
                 cls_id = det["cls_id"]
@@ -374,6 +395,16 @@ def run_image_detection(args: argparse.Namespace, out_dir: Path, area_engine: Li
                 "detections": detections,
             }
         )
+        emit_pipeline_event(
+            "detection",
+            60 + int(35 * (image_index + 1) / max(len(image_paths), 1)),
+            f"Detection outputs written for {image_path.name}",
+        )
+        emit_pipeline_event(
+            "area",
+            75 + int(20 * (image_index + 1) / max(len(image_paths), 1)),
+            f"Area outputs written for {image_path.name}",
+        )
 
     write_csv(out_dir / "detections.csv", detection_rows)
     write_csv(out_dir / "area_estimates.csv", area_rows)
@@ -397,7 +428,7 @@ def run_image_detection(args: argparse.Namespace, out_dir: Path, area_engine: Li
             "device_actual": device,
         },
         "area_estimation": {
-            "methods": ["M1_empirical_bbox", "M3_depth_anything_v2_empirical_bbox", "M4_metric3d_empirical_bbox"],
+            "methods": ["rule_based_bbox_geometry", "depth_anything_v2_assisted_bbox", "metric3d_assisted_bbox"],
             "mode": "live_depth",
             "depth_anything_checkpoint": str(area_engine.config.depth_checkpoint),
             "depth_anything_repo": str(area_engine.config.depth_repo),
@@ -424,7 +455,11 @@ def run_image_detection(args: argparse.Namespace, out_dir: Path, area_engine: Li
 
 def run_or_reuse_video_results(args: argparse.Namespace, out_dir: Path) -> Path:
     if args.video_results_dir.exists() and (args.video_results_dir / "summary.json").exists():
+        emit_pipeline_event("detection", 100, "Reusing existing video detection results", status="done")
+        emit_pipeline_event("dedup", 100, "Reusing existing video deduplication results", status="done")
         return args.video_results_dir
+    emit_pipeline_event("detection", 5, "Starting video detection subprocess")
+    emit_pipeline_event("dedup", 5, "Starting tracker association subprocess")
     command = [
         sys.executable,
         str(VIDEO_ROOT / "scripts" / "infer_video.py"),
@@ -588,6 +623,7 @@ def select_representative_event_detections(
 
 def build_video_report_input(args: argparse.Namespace, out_dir: Path, area_engine: LiveAreaEngine) -> dict[str, Any]:
     result_dir = run_or_reuse_video_results(args, out_dir)
+    emit_pipeline_event("dedup", 92, "Reading video track events and selecting representative frames")
     summary = json.loads((result_dir / "summary.json").read_text(encoding="utf-8"))
     detection_rows = read_csv(result_dir / "detections.csv")
     event_rows = read_csv(result_dir / "track_events.csv")
@@ -622,6 +658,11 @@ def build_video_report_input(args: argparse.Namespace, out_dir: Path, area_engin
             confidence=float(selected["confidence"]),
             bbox_xyxy=[float(v) for v in selected["bbox_xyxy"]],
         )
+        emit_pipeline_event(
+            "area",
+            25 + int(60 * index / max(len(selected_event_dets), 1)),
+            f"Estimating area for representative video event {index + 1}/{len(selected_event_dets)}",
+        )
         area_by_id, area_visuals = area_engine.estimate_image_with_visuals(raw_frame_path, [spec], area_visual_dir)
         representative_area_by_event[item_id] = area_by_id[item_id]
         annotated_frame.update(
@@ -636,6 +677,7 @@ def build_video_report_input(args: argparse.Namespace, out_dir: Path, area_engin
             }
         )
         representative_frames.append(annotated_frame)
+    emit_pipeline_event("area", 92, "Representative-event area outputs written")
 
     events: list[dict[str, Any]] = []
     event_area_rows: list[dict[str, Any]] = []
@@ -700,7 +742,7 @@ def build_video_report_input(args: argparse.Namespace, out_dir: Path, area_engin
             "device_actual": summary.get("device_actual", ""),
         },
         "area_estimation": {
-            "methods": ["M1_empirical_bbox", "M3_depth_anything_v2_empirical_bbox", "M4_metric3d_empirical_bbox"],
+            "methods": ["rule_based_bbox_geometry", "depth_anything_v2_assisted_bbox", "metric3d_assisted_bbox"],
             "mode": "live_depth_representative_events_only",
             "num_events_with_area": len(event_area_rows),
             "depth_anything_checkpoint": str(area_engine.config.depth_checkpoint),
@@ -737,7 +779,7 @@ def standard_limitations() -> list[str]:
         "Only model-predicted bounding boxes are used as report evidence; RDD ground-truth boxes are not provided to the VLM.",
         "Confidence is model confidence, not accuracy. Accuracy requires manually labeled evaluation data.",
         "All area values are estimated areas. No camera calibration, lane-line calibration, or physical area ground truth is available in this demo.",
-        "M3/M4 are live depth-based estimates over bbox rectangles with assumed FOV; they are not physical ground truth.",
+        "Depth Anything V2-assisted and Metric3D-assisted areas are live depth-based estimates over bbox rectangles with assumed FOV; they are not physical ground truth.",
         "Maintenance suggestions are decision support only and are not final engineering diagnosis.",
     ]
 
@@ -790,9 +832,9 @@ def compact_report_input_for_prompt(report_input: dict[str, Any], max_events: in
                         "detection_id": det["detection_id"],
                         "class_code": det["class_code"],
                         "confidence": det["confidence"],
-                        "M1_area_m2": area_by_id.get("M1"),
-                        "M3_area_m2": area_by_id.get("M3"),
-                        "M4_area_m2": area_by_id.get("M4"),
+                        "rule_based_bbox_area_m2": area_by_id.get("M1"),
+                        "depth_anything_v2_area_m2": area_by_id.get("M3"),
+                        "metric3d_area_m2": area_by_id.get("M4"),
                     }
                 )
                 detection_table.append(
@@ -802,9 +844,9 @@ def compact_report_input_for_prompt(report_input: dict[str, Any], max_events: in
                         "class_code": det["class_code"],
                         "class_name": det["class_name"],
                         "confidence": det["confidence"],
-                        "M1_area_m2": area_by_id.get("M1"),
-                        "M3_area_m2": area_by_id.get("M3"),
-                        "M4_area_m2": area_by_id.get("M4"),
+                        "rule_based_bbox_area_m2": area_by_id.get("M1"),
+                        "depth_anything_v2_area_m2": area_by_id.get("M3"),
+                        "metric3d_area_m2": area_by_id.get("M4"),
                     }
                 )
             image_top_detections.sort(key=lambda row: (-float(row["confidence"]), row["detection_id"]))
@@ -829,7 +871,7 @@ def compact_report_input_for_prompt(report_input: dict[str, Any], max_events: in
         ]
         priority_events = sorted(
             detection_table,
-            key=lambda row: (-float(row["confidence"]), -float(row.get("M1_area_m2") or 0), row["detection_id"]),
+            key=lambda row: (-float(row["confidence"]), -float(row.get("rule_based_bbox_area_m2") or 0), row["detection_id"]),
         )[:5]
         compact["priority_events"] = priority_events
     if compact.get("report_type") == "video":
@@ -861,11 +903,13 @@ def build_qwen_messages(
         user_text = (
             "Generate an English Markdown road-damage inspection report from the report_input below. "
             "The report must include: inspection overview, damage statistics, representative-image notes, "
-            "priority damage events, M1/M3/M4 estimated-area comparison, maintenance-priority suggestions, and limitations. "
+            "priority damage events, estimated-area comparison using the full method names, maintenance-priority suggestions, and limitations. "
             "Do not output JSON. For damage statistics, prioritize class names and counts. If confidence ranges are used, "
             "copy them only from image_class_summary. Do not recalculate them. Representative-image notes must follow "
             "image_summary.num_detections and image_summary.counts_by_class; do not freely count visible objects from images. "
-            "Priority events must use priority_events only and copy each event's detection_id, class_code, confidence, and M1/M3/M4 values. "
+            "Priority events must use priority_events only and copy each event's detection_id, class_code, confidence, "
+            "rule_based_bbox_area_m2, depth_anything_v2_area_m2, and metric3d_area_m2 values. "
+            "Use the method names 'rule-based bbox geometry', 'Depth Anything V2-assisted estimate', and 'Metric3D-assisted estimate'; do not use internal shorthand method codes in the report. "
             "If a detection_id is referenced, use class_code, confidence, and area values from the same row of image_detection_table. "
             "Do not use the word accuracy unless explicitly saying that confidence is not accuracy.\n\n"
             f"report_input:\n{json.dumps(compact, ensure_ascii=False, indent=2)}"
@@ -879,11 +923,13 @@ def build_qwen_messages(
         )
         user_text = (
             "请根据下面的 report_input 生成中文 Markdown 道路病害报告。"
-            "报告必须包含：巡检概况、病害统计、代表图说明、重点病害事件、M1/M3/M4 面积估计比较、"
+            "报告必须包含：巡检概况、病害统计、代表图说明、重点病害事件、三种完整方法名的面积估计比较、"
             "维护优先级建议、局限性。不要输出 JSON。"
             "病害统计表优先写类别和数量；如果写置信度范围，必须逐字使用 image_class_summary，不要自己重新聚合。"
             "代表图说明必须逐字依据 image_summary 的 num_detections 和 counts_by_class，不要从图片外观自由计数或描述“可见几条”。"
-            "重点病害事件必须只使用 priority_events，复制同一行的 detection_id、class_code、confidence、M1/M3/M4，不能自行挑选或混用。"
+            "重点病害事件必须只使用 priority_events，复制同一行的 detection_id、class_code、confidence、"
+            "rule_based_bbox_area_m2、depth_anything_v2_area_m2 和 metric3d_area_m2，不能自行挑选或混用。"
+            "报告中请使用完整方法名：rule-based bbox geometry、Depth Anything V2-assisted estimate、Metric3D-assisted estimate；不要使用内部方法简称。"
             "如果引用 detection_id，必须使用 image_detection_table 中同一行的 class_code、confidence 和面积值，"
             "不要把不同 detection 的类别或置信度混用。不要说“准确率”，只能说“模型置信度”。\n\n"
             f"report_input:\n{json.dumps(compact, ensure_ascii=False, indent=2)}"
@@ -995,6 +1041,7 @@ def main() -> int:
     demo_dir = ensure_dir(args.output_root / f"{args.mode}_demo")
     try:
         area_engine = build_live_area_engine(args)
+        emit_pipeline_event("area", 18, "Depth resources loaded")
     except RuntimeError as exc:
         (demo_dir / "report.md").write_text(f"Report generation failed before evidence build: {exc}\n", encoding="utf-8")
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -1004,6 +1051,8 @@ def main() -> int:
         report_input = run_image_detection(args, demo_dir, area_engine)
     else:
         report_input = build_video_report_input(args, demo_dir, area_engine)
+    emit_pipeline_event("detection", 100, "Detection evidence package completed", status="done")
+    emit_pipeline_event("area", 100, "Area evidence package completed", status="done")
 
     report_input["inspection_id"] = f"{args.mode}_demo_{int(start)}"
     report_input["report_generation"] = {
@@ -1015,6 +1064,7 @@ def main() -> int:
         "runtime_started_at_unix": int(start),
     }
     write_json(demo_dir / "report_input.json", report_input)
+    emit_pipeline_event("report", 35, "Structured report_input.json written")
 
     damage_summary = report_input.get("damage_summary", {})
     if int(damage_summary.get("total_detections", 0) or 0) == 0:
@@ -1030,6 +1080,7 @@ def main() -> int:
                 "message": "No Qwen request was built because there were no model detections.",
             },
         )
+        emit_pipeline_event("report", 100, "No detections; report request skipped", status="skipped")
         result = {
             "mode": args.mode,
             "output_dir": str(demo_dir),
@@ -1045,19 +1096,24 @@ def main() -> int:
 
     payload = build_payload(args, report_input)
     write_json(demo_dir / "qwen_request_preview.json", preview_payload(payload))
+    emit_pipeline_event("report", 55, "Qwen request preview written")
 
     try:
         if args.call_api:
+            emit_pipeline_event("report", 70, "Calling SiliconFlow Qwen API")
             response = call_siliconflow(payload, args.timeout_s)
             write_json(demo_dir / "raw_response.json", response)
             write_report_from_response(demo_dir, response)
+            emit_pipeline_event("report", 100, "Qwen report generated", status="done")
         else:
             (demo_dir / "report.md").write_text(
                 "API call was not executed. Re-run with --call-api after setting SILICONFLOW_API_KEY.\n",
                 encoding="utf-8",
             )
+            emit_pipeline_event("report", 100, "API disabled; request preview generated", status="skipped")
     except Exception as exc:  # noqa: BLE001
         (demo_dir / "report.md").write_text(f"Report generation failed: {exc}\n", encoding="utf-8")
+        emit_pipeline_event("report", 100, f"Qwen report generation failed: {exc}", status="failed")
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 

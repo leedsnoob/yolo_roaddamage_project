@@ -64,13 +64,16 @@ def test_upload_image_creates_completed_job_with_artifacts(tmp_path: Path) -> No
     assert status["file_type"] == "image"
     assert status["status"] == "completed"
     assert status["steps"]["detection"]["status"] == "done"
+    assert status["steps"]["detection"]["progress"] == 100
     assert status["steps"]["report"]["status"] == "done"
+    assert status["progress_percent"] == 100
     assert status["options"]["report_language"] == "en"
 
     artifacts = client.get(f"/api/jobs/{job_id}/artifacts").json()
     paths = {item["name"]: item for item in artifacts["artifacts"]}
     assert "report.md" in paths
     assert paths["report.md"]["url"].startswith(f"/artifacts/{job_id}/")
+    assert isinstance(paths["report.md"]["modified_at"], float)
 
 
 def test_upload_preserves_sanitized_original_filename(tmp_path: Path) -> None:
@@ -113,4 +116,5 @@ def test_no_detection_job_skips_area_and_report(tmp_path: Path) -> None:
     assert status["status"] == "completed"
     assert status["summary"]["total_detections"] == 0
     assert status["steps"]["area"]["status"] == "skipped"
+    assert status["steps"]["area"]["progress"] == 100
     assert status["steps"]["report"]["status"] == "skipped"

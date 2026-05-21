@@ -38,6 +38,7 @@ def list_artifacts(job_id: str, output_dir: Path) -> list[dict[str, Any]]:
                 "relative_path": str(rel),
                 "kind": artifact_kind(path),
                 "size_bytes": path.stat().st_size,
+                "modified_at": path.stat().st_mtime,
                 "url": f"/artifacts/{job_id}/{rel.as_posix()}",
             }
         )

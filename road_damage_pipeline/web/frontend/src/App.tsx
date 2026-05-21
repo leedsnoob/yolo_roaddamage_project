@@ -7,6 +7,7 @@ type Locale = "zh" | "en";
 type StepState = {
   status: StepStatus;
   message: string;
+  progress: number;
 };
 
 type Job = {
@@ -17,6 +18,10 @@ type Job = {
   error: string;
   summary: Record<string, unknown>;
   steps: Record<string, StepState>;
+  active_step: string;
+  progress_percent: number;
+  created_at: number;
+  updated_at: number;
   options: {
     call_api: boolean;
     run_segmentation: boolean;
@@ -34,6 +39,7 @@ type Artifact = {
   relative_path: string;
   kind: "image" | "video" | "report" | "csv" | "json" | "file";
   size_bytes: number;
+  modified_at?: number;
   url: string;
 };
 
@@ -43,8 +49,16 @@ type AreaRow = {
   className: string;
   confidence: number;
   methodId: "M1" | "M3" | "M4";
+  methodName: string;
   area: number;
   status: string;
+  widthPx?: number;
+  heightPx?: number;
+  bboxAreaPx2?: number;
+  widthM?: number;
+  heightM?: number;
+  scaleAssumption?: string;
+  cameraAssumption?: string;
   depthMedian?: number;
 };
 
@@ -74,6 +88,9 @@ const COPY = {
     callApi: "调用 SiliconFlow Qwen 生成真实报告",
     apiMissing: "后端未检测到 SILICONFLOW_API_KEY；会生成 request preview，不会真实调用 Qwen。",
     apiReady: "后端已检测到 SILICONFLOW_API_KEY，会尝试真实生成 Qwen 报告。",
+    apiSource: "API 来源",
+    progress: "任务进度",
+    currentStep: "当前步骤",
     conf: "conf 阈值",
     iou: "IoU 阈值",
     submit: "开始分析",
@@ -94,16 +111,25 @@ const COPY = {
     artifacts: "产物数",
     noStats: "暂无统计",
     areaTitle: "面积计算",
-    areaExplain: "M1 由检测框宽高和固定像素尺度计算：D00=框高×0.8，D10=框宽×1.2，D20/D40=框面积/3；M3/M4 在此基础上引入 Depth Anything V2 或 Metric3D 深度图。当前都是估计面积，不是真实标定面积。",
+    areaExplain: "Rule-based bbox geometry 使用检测框宽高和固定像素尺度计算：D00=框高×0.8，D10=框宽×1.2，D20/D40=框面积/3；Depth Anything V2-assisted 和 Metric3D-assisted 方法在同一 bbox 区域内读取深度图并进行几何辅助估计。当前都是估计面积，不是真实标定面积。",
     areaEmpty: "面积 CSV 生成后会显示在这里。",
+    areaBbox: "检测框",
+    areaScale: "尺度假设",
+    areaCamera: "相机假设",
+    ruleBased: "Rule-based bbox geometry",
+    depthAnything: "Depth Anything V2-assisted",
+    metric3d: "Metric3D-assisted",
     localReportTitle: "结构化摘要",
     qwenReportTitle: "Qwen 报告",
     savePdf: "打印 / 保存 PDF",
-    noReportWithApi: "真实 Qwen 报告未生成。请确认启动后端前已经 export SILICONFLOW_API_KEY，然后重新提交任务。",
+    reportRunning: "Qwen 报告正在等待结构化证据或正在生成中。请看上方进度条和步骤状态。",
+    noReportWithApi: "真实 Qwen 报告未生成。请检查“报告生成”步骤的错误信息。若提示缺少 API key，请停止后端，执行 export SILICONFLOW_API_KEY=\"$(cat apikey.txt)\" 后重新启动后端，再提交新任务。",
     noReportWithoutApi: "未勾选真实 API 调用。本次只生成 qwen_request_preview.json，不生成 Qwen 报告。",
     artifactsTitle: "全部中间产物",
     noArtifacts: "暂无产物。",
     artifactHint: "CSV/JSON 是论文和前端二次可视化的可信数据来源，报告只作为自然语言解释层。",
+    selectArtifact: "点击产物会在主面板预览；下载按钮才会打开或保存文件。",
+    download: "下载",
     reportInputHint: "已读取 report_input.json；摘要和报告均来自同一份结构化证据。",
     localEmpty: "暂无报告。",
     localOverview: "结构化摘要",
@@ -146,6 +172,9 @@ const COPY = {
     callApi: "Call SiliconFlow Qwen for a real report",
     apiMissing: "The backend does not see SILICONFLOW_API_KEY; it will generate a request preview only.",
     apiReady: "The backend sees SILICONFLOW_API_KEY and will try to generate a real Qwen report.",
+    apiSource: "API source",
+    progress: "Job progress",
+    currentStep: "Current step",
     conf: "conf threshold",
     iou: "IoU threshold",
     submit: "Start analysis",
@@ -166,16 +195,25 @@ const COPY = {
     artifacts: "Artifacts",
     noStats: "No statistics yet",
     areaTitle: "Area estimation",
-    areaExplain: "M1 is computed from detection-box geometry and fixed pixel scale: D00=box height×0.8, D10=box width×1.2, D20/D40=box area/3. M3/M4 add Depth Anything V2 or Metric3D depth maps. All values are estimated areas, not calibrated physical ground truth.",
+    areaExplain: "Rule-based bbox geometry uses the detection-box width, height and a fixed pixel scale: D00=box height×0.8, D10=box width×1.2, and D20/D40=one third of the box area. Depth Anything V2-assisted and Metric3D-assisted estimates read depth maps inside the same bbox region. All values are estimated areas, not calibrated physical ground truth.",
     areaEmpty: "Area rows will appear after the CSV is generated.",
+    areaBbox: "Bounding box",
+    areaScale: "Scale assumption",
+    areaCamera: "Camera assumption",
+    ruleBased: "Rule-based bbox geometry",
+    depthAnything: "Depth Anything V2-assisted",
+    metric3d: "Metric3D-assisted",
     localReportTitle: "Structured summary",
     qwenReportTitle: "Qwen report",
     savePdf: "Print / Save PDF",
-    noReportWithApi: "A real Qwen report was not generated. Export SILICONFLOW_API_KEY before starting the backend, then submit the job again.",
+    reportRunning: "The Qwen report is waiting for structured evidence or is being generated. Check the progress bar and step status above.",
+    noReportWithApi: "A real Qwen report was not generated. Check the Report Generation step message. If the message says the API key is missing, stop the backend, run export SILICONFLOW_API_KEY=\"$(cat apikey.txt)\", restart the backend, and submit a new job.",
     noReportWithoutApi: "Real API calling is disabled. This job only generated qwen_request_preview.json, not a Qwen report.",
     artifactsTitle: "All intermediate artifacts",
     noArtifacts: "No artifacts yet.",
     artifactHint: "CSV/JSON files are the trusted data sources for the paper and frontend visualizations. Reports are the natural-language explanation layer.",
+    selectArtifact: "Click an artifact to preview it in the main panel; use Download only when you want to open or save the file.",
+    download: "Download",
     reportInputHint: "report_input.json has been loaded; summaries and reports are based on the same structured evidence.",
     localEmpty: "No report yet.",
     localOverview: "Structured summary",
@@ -211,8 +249,17 @@ function statusText(status: StepStatus | JobStatus, locale: Locale): string {
   return COPY[locale].statuses[status] ?? status;
 }
 
-function artifactUrl(url: string): string {
-  return `${API_BASE}${url}`;
+function artifactUrl(url: string, version?: string | number): string {
+  const base = `${API_BASE}${url}`;
+  if (version === undefined || version === "") return base;
+  const separator = base.includes("?") ? "&" : "?";
+  return `${base}${separator}v=${encodeURIComponent(String(version))}`;
+}
+
+function artifactCacheKey(item?: Artifact): string {
+  if (!item) return "";
+  const modified = item.modified_at ? Math.floor(item.modified_at * 1000) : 0;
+  return `${item.size_bytes}-${modified}`;
 }
 
 function parseCsv(text: string): Record<string, string>[] {
@@ -251,6 +298,29 @@ function parseCsv(text: string): Record<string, string>[] {
 
 function normalizeAreaRows(rows: Record<string, string>[]): AreaRow[] {
   if (!rows.length) return [];
+  const parseBbox = (value: string) => {
+    try {
+      const parsed = JSON.parse(value || "[]");
+      if (Array.isArray(parsed) && parsed.length >= 4) return parsed.map(Number);
+    } catch {
+      return [];
+    }
+    return [];
+  };
+  const bboxMetrics = (row: Record<string, string>) => {
+    const bbox = parseBbox(row.bbox_xyxy || "");
+    const widthPx = Number(row.width_px || (bbox.length >= 4 ? Math.max(bbox[2] - bbox[0], 0) : 0));
+    const heightPx = Number(row.height_px || (bbox.length >= 4 ? Math.max(bbox[3] - bbox[1], 0) : 0));
+    return {
+      widthPx,
+      heightPx,
+      bboxAreaPx2: Number(row.bbox_area_px2 || widthPx * heightPx || 0),
+      widthM: row.width_m ? Number(row.width_m) : undefined,
+      heightM: row.height_m ? Number(row.height_m) : undefined,
+      scaleAssumption: row.scale_assumption,
+      cameraAssumption: row.camera_assumption
+    };
+  };
   if ("method_id" in rows[0]) {
     return rows.map((row) => ({
       itemId: row.detection_id || row.event_id || "",
@@ -258,9 +328,11 @@ function normalizeAreaRows(rows: Record<string, string>[]): AreaRow[] {
       className: row.class_name || "",
       confidence: Number(row.confidence || row.max_confidence || 0),
       methodId: row.method_id as "M1" | "M3" | "M4",
+      methodName: row.method_name || methodLabel(row.method_id as "M1" | "M3" | "M4", "en"),
       area: Number(row.estimated_area_m2 || 0),
       status: row.status || "",
-      depthMedian: row.depth_median_m ? Number(row.depth_median_m) : undefined
+      depthMedian: row.depth_median_m ? Number(row.depth_median_m) : undefined,
+      ...bboxMetrics(row)
     }));
   }
   return rows.flatMap((row) => {
@@ -268,12 +340,13 @@ function normalizeAreaRows(rows: Record<string, string>[]): AreaRow[] {
       itemId: row.detection_id || row.event_id || "",
       classCode: row.class_code || "",
       className: row.class_name || "",
-      confidence: Number(row.confidence || row.max_confidence || 0)
+      confidence: Number(row.confidence || row.max_confidence || 0),
+      ...bboxMetrics(row)
     };
     return [
-      { ...base, methodId: "M1" as const, area: Number(row.M1_area_m2 || 0), status: "success" },
-      { ...base, methodId: "M3" as const, area: Number(row.M3_area_m2 || 0), status: row.M3_status || "success" },
-      { ...base, methodId: "M4" as const, area: Number(row.M4_area_m2 || 0), status: row.M4_status || "success" }
+      { ...base, methodId: "M1" as const, methodName: methodLabel("M1", "en"), area: Number(row.M1_area_m2 || 0), status: "success" },
+      { ...base, methodId: "M3" as const, methodName: methodLabel("M3", "en"), area: Number(row.M3_area_m2 || 0), status: row.M3_status || "success" },
+      { ...base, methodId: "M4" as const, methodName: methodLabel("M4", "en"), area: Number(row.M4_area_m2 || 0), status: row.M4_status || "success" }
     ];
   });
 }
@@ -298,6 +371,15 @@ function formatArea(value?: number): string {
   return `${value.toFixed(value >= 10 ? 2 : 3)} m²`;
 }
 
+function methodLabel(methodId: "M1" | "M3" | "M4", locale: Locale): string {
+  const labels = {
+    M1: locale === "zh" ? "Rule-based bbox geometry" : "Rule-based bbox geometry",
+    M3: locale === "zh" ? "Depth Anything V2-assisted" : "Depth Anything V2-assisted",
+    M4: locale === "zh" ? "Metric3D-assisted" : "Metric3D-assisted"
+  };
+  return labels[methodId];
+}
+
 function markdownTable(lines: string[], keyPrefix: string) {
   const splitRow = (line: string) =>
     line
@@ -311,17 +393,28 @@ function markdownTable(lines: string[], keyPrefix: string) {
   return (
     <table className="markdownTable" key={keyPrefix}>
       <thead>
-        <tr>{headers.map((header, index) => <th key={`${keyPrefix}-h-${index}`}>{header}</th>)}</tr>
+        <tr>{headers.map((header, index) => <th key={`${keyPrefix}-h-${index}`}>{renderInline(header)}</th>)}</tr>
       </thead>
       <tbody>
         {rows.map((row, rowIndex) => (
           <tr key={`${keyPrefix}-r-${rowIndex}`}>
-            {headers.map((_, cellIndex) => <td key={`${keyPrefix}-c-${rowIndex}-${cellIndex}`}>{row[cellIndex] ?? ""}</td>)}
+            {headers.map((_, cellIndex) => <td key={`${keyPrefix}-c-${rowIndex}-${cellIndex}`}>{renderInline(row[cellIndex] ?? "")}</td>)}
           </tr>
         ))}
       </tbody>
     </table>
   );
+}
+
+function renderInline(text: string): ReactElement | string | (ReactElement | string)[] {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+  if (parts.length === 1) return text.replaceAll("`", "");
+  return parts.map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={`strong-${index}`}>{part.slice(2, -2).replaceAll("`", "")}</strong>;
+    }
+    return part.replaceAll("`", "");
+  });
 }
 
 function MarkdownView({ text }: { text: string }) {
@@ -338,7 +431,7 @@ function MarkdownView({ text }: { text: string }) {
     if (heading) {
       const level = Math.min(heading[1].length, 4);
       const Tag = (["h2", "h3", "h4", "h5"] as const)[level - 1];
-      elements.push(<Tag key={`h-${index}`}>{heading[2]}</Tag>);
+      elements.push(<Tag key={`h-${index}`}>{renderInline(heading[2])}</Tag>);
       index += 1;
       continue;
     }
@@ -360,7 +453,7 @@ function MarkdownView({ text }: { text: string }) {
       }
       elements.push(
         <ul key={`ul-${index}`}>
-          {items.map((item, itemIndex) => <li key={`ul-${index}-${itemIndex}`}>{item}</li>)}
+          {items.map((item, itemIndex) => <li key={`ul-${index}-${itemIndex}`}>{renderInline(item)}</li>)}
         </ul>
       );
       continue;
@@ -373,7 +466,7 @@ function MarkdownView({ text }: { text: string }) {
       }
       elements.push(
         <ol key={`ol-${index}`}>
-          {items.map((item, itemIndex) => <li key={`ol-${index}-${itemIndex}`}>{item}</li>)}
+          {items.map((item, itemIndex) => <li key={`ol-${index}-${itemIndex}`}>{renderInline(item)}</li>)}
         </ol>
       );
       continue;
@@ -390,7 +483,7 @@ function MarkdownView({ text }: { text: string }) {
       paragraph.push(lines[index]);
       index += 1;
     }
-    elements.push(<p key={`p-${index}`}>{paragraph.join(" ")}</p>);
+    elements.push(<p key={`p-${index}`}>{renderInline(paragraph.join(" "))}</p>);
   }
   return <div className="markdownReport">{elements}</div>;
 }
@@ -400,26 +493,27 @@ function escapeHtml(text: string): string {
 }
 
 function markdownToHtml(markdown: string): string {
+  const inlineHtml = (value: string) => escapeHtml(value).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+)`/g, "$1");
   const lines = markdown.split(/\r?\n/);
   const html: string[] = [];
   for (const line of lines) {
     const heading = line.match(/^(#{1,4})\s+(.+)$/);
     if (heading) {
       const level = Math.min(heading[1].length + 1, 5);
-      html.push(`<h${level}>${escapeHtml(heading[2])}</h${level}>`);
+      html.push(`<h${level}>${inlineHtml(heading[2])}</h${level}>`);
     } else if (line.trim().startsWith("|")) {
       html.push(`<pre>${escapeHtml(line)}</pre>`);
     } else if (line.match(/^\s*[-*]\s+/)) {
-      html.push(`<p>• ${escapeHtml(line.replace(/^\s*[-*]\s+/, ""))}</p>`);
+      html.push(`<p>• ${inlineHtml(line.replace(/^\s*[-*]\s+/, ""))}</p>`);
     } else if (line.trim()) {
-      html.push(`<p>${escapeHtml(line)}</p>`);
+      html.push(`<p>${inlineHtml(line)}</p>`);
     }
   }
   return html.join("\n");
 }
 
 function printMarkdownReport(markdown: string, title: string) {
-  const popup = window.open("", "_blank", "noopener,noreferrer,width=980,height=1200");
+  const popup = window.open("", "_blank", "width=980,height=1200");
   if (!popup) return;
   popup.document.write(`<!doctype html>
 <html>
@@ -439,22 +533,25 @@ ${markdownToHtml(markdown)}
 </body>
 </html>`);
   popup.document.close();
+  popup.focus();
 }
 
 function pickHeroArtifact(artifacts: Artifact[]): Artifact | undefined {
   const preference = [
+    "_annotated.mp4",
     "predicted_review_grid.jpg",
     "area_board.jpg",
     "event_timeline.png",
     "density_timeline.png",
-    "annotated.mp4",
     "report.md"
   ];
+  const candidates = artifacts.filter((item) => !isRawUploadArtifact(item));
+  const pool = candidates.length ? candidates : artifacts;
   for (const key of preference) {
-    const found = artifacts.find((item) => item.name.includes(key) || item.relative_path.includes(key));
+    const found = pool.find((item) => item.name.includes(key) || item.relative_path.includes(key));
     if (found) return found;
   }
-  return artifacts.find((item) => item.kind === "image" || item.kind === "video" || item.kind === "report");
+  return pool.find((item) => item.kind === "video" || item.kind === "image" || item.kind === "report");
 }
 
 function isRawUploadArtifact(item: Artifact): boolean {
@@ -463,6 +560,19 @@ function isRawUploadArtifact(item: Artifact): boolean {
     item.relative_path.startsWith("input_images/") ||
     item.relative_path.includes("/representative_raw_frames/")
   );
+}
+
+function artifactDisplayRank(item: Artifact): number {
+  const path = item.relative_path;
+  if (path.includes("_annotated.mp4")) return 0;
+  if (path.includes("predicted_review_grid")) return 1;
+  if (path.includes("area_board")) return 2;
+  if (path.includes("representative_frames/")) return 3;
+  if (path.includes("density_timeline") || path.includes("event_timeline")) return 4;
+  if (item.kind === "report") return 5;
+  if (item.kind === "video") return 6;
+  if (item.kind === "image") return 7;
+  return 9;
 }
 
 export function App() {
@@ -476,16 +586,26 @@ export function App() {
   const [job, setJob] = useState<Job | null>(null);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [reportText, setReportText] = useState("");
+  const [selectedArtifactPath, setSelectedArtifactPath] = useState("");
+  const [selectedArtifactText, setSelectedArtifactText] = useState("");
   const [areaRows, setAreaRows] = useState<AreaRow[]>([]);
   const [reportInput, setReportInput] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [apiReady, setApiReady] = useState<boolean | null>(null);
+  const [apiSource, setApiSource] = useState("");
+  const [apiHint, setApiHint] = useState("");
 
   const text = COPY[locale];
-  const heroArtifact = useMemo(() => pickHeroArtifact(artifacts), [artifacts]);
-  const imageArtifacts = artifacts.filter((item) => item.kind === "image");
-  const visualImageArtifacts = imageArtifacts.filter((item) => !isRawUploadArtifact(item));
+  const selectedArtifact = useMemo(
+    () => artifacts.find((item) => item.relative_path === selectedArtifactPath),
+    [artifacts, selectedArtifactPath]
+  );
+  const heroArtifact = selectedArtifact ?? pickHeroArtifact(artifacts);
+  const visualArtifacts = artifacts
+    .filter((item) => (item.kind === "image" || item.kind === "video" || item.kind === "report") && !isRawUploadArtifact(item))
+    .slice()
+    .sort((a, b) => artifactDisplayRank(a) - artifactDisplayRank(b) || a.relative_path.localeCompare(b.relative_path));
   const tableArtifacts = artifacts.filter((item) => item.kind === "csv" || item.kind === "json");
   const areaGroups = useMemo(() => groupAreaRows(areaRows), [areaRows]);
   const reportLooksLikePlaceholder =
@@ -504,7 +624,7 @@ export function App() {
       .slice(0, 5)
       .map((item) => {
         const confLabel = locale === "zh" ? "置信度" : "conf";
-        return `- ${item.itemId} ${item.classCode} ${confLabel}=${item.confidence.toFixed(2)} | M1 ${formatArea(item.M1?.area)} | M3 ${formatArea(item.M3?.area)} | M4 ${formatArea(item.M4?.area)}`;
+        return `- ${item.itemId} ${item.classCode} ${confLabel}=${item.confidence.toFixed(2)} | Rule-based ${formatArea(item.M1?.area)} | Depth Anything V2 ${formatArea(item.M3?.area)} | Metric3D ${formatArea(item.M4?.area)}`;
       })
       .join("\n");
     if (locale === "en") {
@@ -519,9 +639,9 @@ export function App() {
         countLines || `- ${text.noClassStats}`,
         "",
         `### ${text.areaMethodExplain}`,
-        "- M1: detection-box geometry with fixed pixel scale. D00 uses box height×0.8, D10 uses box width×1.2, and D20/D40 use one third of the box rectangle area.",
-        "- M3: Depth Anything V2 depth map over the bbox rectangle, then scaled by the same class-specific effective-area ratio.",
-        "- M4: Metric3D depth map over the bbox rectangle, then scaled by the same class-specific effective-area ratio.",
+        "- Rule-based bbox geometry: detection-box geometry with fixed pixel scale. D00 uses box height×0.8, D10 uses box width×1.2, and D20/D40 use one third of the box rectangle area.",
+        "- Depth Anything V2-assisted: depth map over the bbox rectangle, then scaled by the same class-specific effective-area ratio.",
+        "- Metric3D-assisted: depth map over the bbox rectangle, then scaled by the same class-specific effective-area ratio.",
         "- All values are estimated areas because no camera intrinsics, calibration object, or physical area GT is available.",
         "",
         `### ${text.priorityAreas}`,
@@ -541,9 +661,9 @@ export function App() {
       countLines || `- ${text.noClassStats}`,
       "",
       `### ${text.areaMethodExplain}`,
-      "- M1: 使用检测框几何尺寸和固定像素尺度计算。D00 按框高×0.8，D10 按框宽×1.2，D20/D40 按框矩形面积的 1/3。",
-      "- M3: 在 bbox 矩形区域内读取 Depth Anything V2 深度图，再乘以同类别的有效面积比例。",
-      "- M4: 在 bbox 矩形区域内读取 Metric3D 深度图，再乘以同类别的有效面积比例。",
+      "- Rule-based bbox geometry: 使用检测框几何尺寸和固定像素尺度计算。D00 按框高×0.8，D10 按框宽×1.2，D20/D40 按框矩形面积的 1/3。",
+      "- Depth Anything V2-assisted: 在 bbox 矩形区域内读取 Depth Anything V2 深度图，再乘以同类别的有效面积比例。",
+      "- Metric3D-assisted: 在 bbox 矩形区域内读取 Metric3D 深度图，再乘以同类别的有效面积比例。",
       "- 三种方法都属于 estimated area，因为当前没有相机内参、标定尺或真实面积 GT。",
       "",
       `### ${text.priorityAreas}`,
@@ -560,7 +680,11 @@ export function App() {
   useEffect(() => {
     fetch(`${API_BASE}/api/health`)
       .then((res) => res.json())
-      .then((data) => setApiReady(Boolean(data.siliconflow_api_ready)))
+      .then((data) => {
+        setApiReady(Boolean(data.siliconflow_api_ready));
+        setApiSource(String(data.siliconflow_api_source ?? ""));
+        setApiHint(String(data.siliconflow_api_hint ?? ""));
+      })
       .catch(() => setApiReady(null));
   }, []);
 
@@ -589,11 +713,34 @@ export function App() {
       setReportText("");
       return;
     }
-    fetch(artifactUrl(report.url))
+    fetch(artifactUrl(report.url, artifactCacheKey(report)))
       .then((res) => res.text())
       .then(setReportText)
       .catch(() => setReportText(locale === "zh" ? "报告文件读取失败。" : "Failed to read report file."));
   }, [artifacts, locale]);
+
+  useEffect(() => {
+    if (!artifacts.length) {
+      setSelectedArtifactPath("");
+      return;
+    }
+    const current = artifacts.find((item) => item.relative_path === selectedArtifactPath);
+    const next = pickHeroArtifact(artifacts);
+    if (current && (!isRawUploadArtifact(current) || !next || isRawUploadArtifact(next))) return;
+    setSelectedArtifactPath(next?.relative_path ?? "");
+  }, [artifacts, selectedArtifactPath]);
+
+  useEffect(() => {
+    const item = selectedArtifact;
+    if (!item || !["csv", "json", "file"].includes(item.kind)) {
+      setSelectedArtifactText("");
+      return;
+    }
+    fetch(artifactUrl(item.url, artifactCacheKey(item)))
+      .then((res) => res.text())
+      .then((textValue) => setSelectedArtifactText(textValue.slice(0, 20000)))
+      .catch(() => setSelectedArtifactText(""));
+  }, [selectedArtifact]);
 
   useEffect(() => {
     const area = artifacts.find((item) => item.name === "area_estimates.csv" || item.name === "event_area_estimates.csv");
@@ -601,7 +748,7 @@ export function App() {
       setAreaRows([]);
       return;
     }
-    fetch(artifactUrl(area.url))
+    fetch(artifactUrl(area.url, artifactCacheKey(area)))
       .then((res) => res.text())
       .then((csvText) => setAreaRows(normalizeAreaRows(parseCsv(csvText))))
       .catch(() => setAreaRows([]));
@@ -613,7 +760,7 @@ export function App() {
       setReportInput(null);
       return;
     }
-    fetch(artifactUrl(input.url))
+    fetch(artifactUrl(input.url, artifactCacheKey(input)))
       .then((res) => res.json())
       .then(setReportInput)
       .catch(() => setReportInput(null));
@@ -624,6 +771,8 @@ export function App() {
     setJob(null);
     setArtifacts([]);
     setReportText("");
+    setSelectedArtifactPath("");
+    setSelectedArtifactText("");
     setAreaRows([]);
     setReportInput(null);
     setError("");
@@ -637,6 +786,8 @@ export function App() {
     setJob(null);
     setArtifacts([]);
     setReportText("");
+    setSelectedArtifactPath("");
+    setSelectedArtifactText("");
     setAreaRows([]);
     setReportInput(null);
     setError("");
@@ -697,6 +848,20 @@ export function App() {
             {text.reset}
           </button>
           <div className="statusPill">{job ? `Job ${job.job_id} · ${statusText(job.status, locale)}` : text.waiting}</div>
+          {job && (
+            <div className="progressCard" aria-label={text.progress}>
+              <div className="progressMeta">
+                <span>{text.progress}</span>
+                <strong>{job.progress_percent}%</strong>
+              </div>
+              <div className="progressTrack">
+                <div style={{ width: `${job.progress_percent}%` }} />
+              </div>
+              <small>
+                {text.currentStep}: {text.stepLabels[job.active_step as keyof typeof text.stepLabels] ?? job.active_step}
+              </small>
+            </div>
+          )}
         </div>
       </section>
 
@@ -725,6 +890,12 @@ export function App() {
             </label>
             {callApi && apiReady === false && <p className="warningText">{text.apiMissing}</p>}
             {callApi && apiReady === true && <p className="okText">{text.apiReady}</p>}
+            {callApi && apiSource && (
+              <p className={apiReady ? "okText" : "warningText"}>
+                {text.apiSource}: {apiSource}
+                {apiHint ? ` · ${apiHint}` : ""}
+              </p>
+            )}
 
             <div className="sliderBlock">
               <span>
@@ -758,17 +929,27 @@ export function App() {
           </div>
           <div className="heroCanvas">
             {!heroArtifact && <p>{text.visualEmpty}</p>}
-            {heroArtifact?.kind === "image" && <img src={artifactUrl(heroArtifact.url)} alt={heroArtifact.name} />}
-            {heroArtifact?.kind === "video" && <video src={artifactUrl(heroArtifact.url)} controls />}
+            {heroArtifact?.kind === "image" && <img src={artifactUrl(heroArtifact.url, artifactCacheKey(heroArtifact))} alt={heroArtifact.name} />}
+            {heroArtifact?.kind === "video" && <video src={artifactUrl(heroArtifact.url, artifactCacheKey(heroArtifact))} controls preload="metadata" />}
             {heroArtifact?.kind === "report" && <MarkdownView text={reportText} />}
+            {heroArtifact && ["csv", "json", "file"].includes(heroArtifact.kind) && (
+              <pre>{selectedArtifactText || `${heroArtifact.name}\n${heroArtifact.relative_path}`}</pre>
+            )}
           </div>
 
           <div className="artifactStrip">
-            {visualImageArtifacts.slice(0, 10).map((item) => (
-              <a key={item.relative_path} href={artifactUrl(item.url)} target="_blank" rel="noreferrer">
-                <img src={artifactUrl(item.url)} alt={item.name} />
+            {visualArtifacts.slice(0, 12).map((item) => (
+              <button
+                className={item.relative_path === heroArtifact?.relative_path ? "active" : ""}
+                key={item.relative_path}
+                type="button"
+                onClick={() => setSelectedArtifactPath(item.relative_path)}
+              >
+                {item.kind === "image" && <img src={artifactUrl(item.url, artifactCacheKey(item))} alt={item.name} />}
+                {item.kind === "video" && <video src={artifactUrl(item.url, artifactCacheKey(item))} muted preload="metadata" />}
+                {item.kind === "report" && <span className="reportThumb">REPORT</span>}
                 <span>{item.name}</span>
-              </a>
+              </button>
             ))}
           </div>
         </section>
@@ -778,11 +959,14 @@ export function App() {
             <h2>{text.stepsTitle}</h2>
             <div className="stepList">
               {Object.entries(text.stepLabels).map(([key, label]) => {
-                const step = job?.steps?.[key] ?? { status: "pending" as StepStatus, message: "" };
+                const step = job?.steps?.[key] ?? { status: "pending" as StepStatus, message: "", progress: 0 };
                 return (
                   <div className={`stepItem ${step.status}`} key={key}>
                     <span>{label}</span>
                     <strong>{statusText(step.status, locale)}</strong>
+                    <div className="stepProgress" aria-label={`${label} ${step.progress ?? 0}%`}>
+                      <div style={{ width: `${step.progress ?? 0}%` }} />
+                    </div>
                     {step.message && <small>{step.message}</small>}
                   </div>
                 );
@@ -831,18 +1015,25 @@ export function App() {
                   </div>
                   <dl>
                     <div>
-                      <dt>M1</dt>
+                      <dt>{methodLabel("M1", locale)}</dt>
                       <dd>{formatArea(item.M1?.area)}</dd>
                     </div>
                     <div>
-                      <dt>M3</dt>
+                      <dt>{methodLabel("M3", locale)}</dt>
                       <dd>{formatArea(item.M3?.area)}</dd>
                     </div>
                     <div>
-                      <dt>M4</dt>
+                      <dt>{methodLabel("M4", locale)}</dt>
                       <dd>{formatArea(item.M4?.area)}</dd>
                     </div>
                   </dl>
+                  <p className="bboxDetail">
+                    {text.areaBbox}: {Math.round(item.M1?.widthPx ?? item.M3?.widthPx ?? item.M4?.widthPx ?? 0)}×
+                    {Math.round(item.M1?.heightPx ?? item.M3?.heightPx ?? item.M4?.heightPx ?? 0)} px
+                    {item.M1?.widthM !== undefined && item.M1?.heightM !== undefined
+                      ? ` (${item.M1.widthM.toFixed(3)}×${item.M1.heightM.toFixed(3)} m)`
+                      : ""}
+                  </p>
                 </div>
               ))}
               {areaGroups.length === 0 && <p>{text.areaEmpty}</p>}
@@ -856,15 +1047,25 @@ export function App() {
 
           <section className="card reportCard">
             <div className="reportHeader">
-              <h2>{text.qwenReportTitle}</h2>
-              {!reportLooksLikePlaceholder && (
-                <button type="button" onClick={() => printMarkdownReport(reportText, text.qwenReportTitle)}>
-                  {text.savePdf}
-                </button>
-              )}
-            </div>
-            {reportLooksLikePlaceholder ? (
-              <MarkdownView text={job?.options.call_api ? text.noReportWithApi : text.noReportWithoutApi} />
+            <h2>{text.qwenReportTitle}</h2>
+            {!reportLooksLikePlaceholder && (
+              <button type="button" onClick={() => printMarkdownReport(reportText, text.qwenReportTitle)}>
+                {text.savePdf}
+              </button>
+            )}
+          </div>
+          {reportLooksLikePlaceholder ? (
+              <MarkdownView
+                text={
+                  job?.steps?.report?.status === "running"
+                    ? text.reportRunning
+                    : job?.summary?.api_warning
+                      ? String(job.summary.api_warning)
+                      : job?.options.call_api
+                        ? text.noReportWithApi
+                        : text.noReportWithoutApi
+                }
+              />
             ) : (
               <MarkdownView text={reportText} />
             )}
@@ -876,11 +1077,16 @@ export function App() {
         <h2>{text.artifactsTitle}</h2>
         <div className="tableGrid">
           {artifacts.map((item) => (
-            <a key={item.relative_path} href={artifactUrl(item.url)} target="_blank" rel="noreferrer">
-              <span>{item.kind}</span>
-              <strong>{item.relative_path}</strong>
-              <em>{Math.ceil(item.size_bytes / 1024)} KB</em>
-            </a>
+            <div className={`artifactRow ${item.relative_path === heroArtifact?.relative_path ? "active" : ""}`} key={item.relative_path}>
+              <button type="button" onClick={() => setSelectedArtifactPath(item.relative_path)}>
+                <span>{item.kind}</span>
+                <strong>{item.relative_path}</strong>
+                <em>{Math.ceil(item.size_bytes / 1024)} KB</em>
+              </button>
+              <a href={artifactUrl(item.url, artifactCacheKey(item))} download>
+                {text.download}
+              </a>
+            </div>
           ))}
           {artifacts.length === 0 && <p>{text.noArtifacts}</p>}
         </div>

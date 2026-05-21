@@ -258,6 +258,13 @@ def draw_box(frame, xyxy, color, label):
     cv2.putText(frame, label, (x1 + 3, y_text - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 0), 2, cv2.LINE_AA)
 
 
+def emit_pipeline_event(step: str, progress: int, message: str, status: str | None = None) -> None:
+    payload = {"step": step, "progress": int(progress), "message": message}
+    if status:
+        payload["status"] = status
+    print("PIPELINE_EVENT " + json.dumps(payload, ensure_ascii=False), flush=True)
+
+
 def output_video_fps(source_fps: float, stride: int, render_mode: str) -> float:
     if render_mode == "preview":
         return source_fps
@@ -384,6 +391,19 @@ def run_single(cfg: dict) -> dict:
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     duration_s = total_frames / fps if fps else 0.0
+    target_processed_frames = max(
+        1,
+        min(
+            int(cfg["max_frames"]) if int(cfg["max_frames"]) > 0 else max(1, (total_frames + max(int(cfg["stride"]), 1) - 1) // max(int(cfg["stride"]), 1)),
+            max(1, (total_frames + max(int(cfg["stride"]), 1) - 1) // max(int(cfg["stride"]), 1)),
+        ),
+    )
+    emit_pipeline_event(
+        "detection",
+        8,
+        f"Video opened: {total_frames} frames, {fps:.2f} FPS, processing {target_processed_frames} sampled frames",
+    )
+    emit_pipeline_event("dedup", 8, f"Tracker backend: {tracker_backend}")
 
     warmup_info = {"enabled": False, "warmup_frames": 0, "warmup_runtime_s": 0.0}
     if device == "mps" and int(cfg.get("warmup_frames", 0)) > 0:
@@ -461,6 +481,18 @@ def run_single(cfg: dict) -> dict:
             continue
 
         processed_frames += 1
+        if processed_frames == 1 or processed_frames % 15 == 0:
+            progress = 10 + int(78 * min(processed_frames, target_processed_frames) / target_processed_frames)
+            emit_pipeline_event(
+                "detection",
+                progress,
+                f"Processed sampled frame {processed_frames}/{target_processed_frames} (source frame {frame_idx}/{total_frames})",
+            )
+            emit_pipeline_event(
+                "dedup",
+                progress,
+                f"Updated tracks after sampled frame {processed_frames}/{target_processed_frames}; current events={sum(unique_counts.values())}",
+            )
         infer_start = time.time()
         if tracker_backend in {"bytetrack", "botsort"}:
             result = model.track(
@@ -601,6 +633,8 @@ def run_single(cfg: dict) -> dict:
     )
 
     event_rows = build_event_rows(events)
+    emit_pipeline_event("detection", 92, f"Writing {len(detections)} frame-level detections")
+    emit_pipeline_event("dedup", 90, f"Writing {len(event_rows)} track-level events")
     write_csv(detections_csv, detections)
     write_csv(events_csv, event_rows)
     raw_metrics = compute_event_metrics(
@@ -676,6 +710,8 @@ def run_single(cfg: dict) -> dict:
         },
     }
     summary_json.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    emit_pipeline_event("detection", 100, "Video detection completed", status="done")
+    emit_pipeline_event("dedup", 100, f"Deduplication completed with {len(final_rows)} unique events", status="done")
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return summary
 

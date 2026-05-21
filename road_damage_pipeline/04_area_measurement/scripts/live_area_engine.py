@@ -397,7 +397,7 @@ class LiveAreaEngine:
         estimates: dict[str, list[dict[str, Any]]],
         title: str,
     ) -> np.ndarray:
-        panel_w, panel_h = 520, 390
+        panel_w, panel_h = 440, 330
 
         def resize_panel(img: np.ndarray) -> np.ndarray:
             return cv2.resize(img, (panel_w, panel_h), interpolation=cv2.INTER_AREA)
@@ -405,32 +405,10 @@ class LiveAreaEngine:
         bbox_panel = resize_panel(bbox_vis)
         da_panel = resize_panel(depth_anything_vis)
         metric_panel = resize_panel(metric3d_vis)
-        text_panel = np.full((panel_h, panel_w, 3), 245, dtype=np.uint8)
-        cv2.rectangle(text_panel, (0, 0), (panel_w, 28), (255, 255, 255), -1)
-        cv2.putText(text_panel, "Area estimates", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.56, (0, 0, 0), 1, cv2.LINE_AA)
-        cv2.putText(text_panel, f"{title}: estimated area", (18, 58), cv2.FONT_HERSHEY_SIMPLEX, 0.64, (20, 20, 20), 2, cv2.LINE_AA)
-        cv2.putText(text_panel, "M1=bbox geometry | M3=Depth Anything | M4=Metric3D", (18, 86), cv2.FONT_HERSHEY_SIMPLEX, 0.46, (70, 70, 70), 1, cv2.LINE_AA)
-        y = 118
-        for idx, box in enumerate(boxes[:12], start=1):
-            areas = estimates.get(box.item_id, [])
-            by_id = {row["method_id"]: row["estimated_area_m2"] for row in areas}
-            line = (
-                f"{idx:02d} {class_code(box.class_id)} conf={box.confidence:.2f} "
-                f"M1={by_id.get('M1', 0):.3f} M3={by_id.get('M3', 0):.3f} M4={by_id.get('M4', 0):.3f} m2"
-            )
-            cv2.putText(text_panel, line, (18, y), cv2.FONT_HERSHEY_SIMPLEX, 0.43, (30, 30, 30), 1, cv2.LINE_AA)
-            y += 24
-            if y > panel_h - 48:
-                remaining = len(boxes) - idx
-                if remaining > 0:
-                    cv2.putText(text_panel, f"... {remaining} more detections in CSV/JSON", (18, y), cv2.FONT_HERSHEY_SIMPLEX, 0.43, (30, 30, 30), 1, cv2.LINE_AA)
-                break
-        cv2.putText(text_panel, "All values are estimated, not physical ground truth.", (18, panel_h - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.46, (0, 0, 180), 1, cv2.LINE_AA)
-
         for panel, label in ((bbox_panel, "Predicted bbox"), (da_panel, "Depth Anything V2"), (metric_panel, "Metric3D")):
             cv2.rectangle(panel, (0, 0), (panel_w, 28), (255, 255, 255), -1)
             cv2.putText(panel, label, (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.56, (0, 0, 0), 1, cv2.LINE_AA)
-        return np.vstack([np.hstack([bbox_panel, text_panel]), np.hstack([da_panel, metric_panel])])
+        return np.hstack([bbox_panel, da_panel, metric_panel])
 
     def _estimate_box(
         self,

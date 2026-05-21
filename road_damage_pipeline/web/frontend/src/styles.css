@@ -150,6 +150,49 @@ h2 {
   white-space: nowrap;
 }
 
+.progressCard {
+  width: min(420px, 100%);
+  padding: 12px 14px;
+  border: 1px solid rgba(79, 183, 223, 0.26);
+  border-radius: 18px;
+  background: rgba(79, 183, 223, 0.08);
+}
+
+.progressMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.progressMeta strong {
+  color: var(--road-yellow);
+}
+
+.progressTrack {
+  height: 9px;
+  margin: 9px 0 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.progressTrack div {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--road-blue), var(--road-yellow));
+  transition: width 260ms ease;
+}
+
+.progressCard small {
+  display: block;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .workspaceGrid {
   display: grid;
   grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
@@ -336,18 +379,42 @@ h2 {
   padding-top: 14px;
 }
 
-.artifactStrip a {
+.artifactStrip button {
   display: block;
+  border: 0;
   text-decoration: none;
   color: var(--muted);
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
 }
 
-.artifactStrip img {
+.artifactStrip button.active img,
+.artifactStrip button.active video,
+.artifactStrip button.active .reportThumb {
+  border-color: var(--road-yellow);
+  box-shadow: 0 0 0 2px rgba(246, 189, 56, 0.32);
+}
+
+.artifactStrip img,
+.artifactStrip video,
+.artifactStrip .reportThumb {
   width: 150px;
   height: 88px;
   object-fit: cover;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.artifactStrip .reportThumb {
+  display: grid;
+  place-items: center;
+  margin-top: 0;
+  background: linear-gradient(135deg, rgba(79, 183, 223, 0.18), rgba(246, 189, 56, 0.12));
+  color: var(--text);
+  font-weight: 800;
+  letter-spacing: 0.08em;
 }
 
 .artifactStrip span {
@@ -401,6 +468,21 @@ h2 {
 .stepItem small {
   grid-column: 1 / -1;
   color: var(--muted);
+}
+
+.stepProgress {
+  grid-column: 1 / -1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.stepProgress div {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--road-blue), var(--road-yellow));
+  transition: width 240ms ease;
 }
 
 .stepItem.running {
@@ -552,7 +634,7 @@ h2 {
 
 .areaItem dl {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 8px;
   margin: 0;
 }
@@ -575,6 +657,12 @@ h2 {
   font-size: 13px;
 }
 
+.bboxDetail {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .artifactTable {
   margin-top: 18px;
   padding: 20px;
@@ -586,15 +674,39 @@ h2 {
   margin-top: 12px;
 }
 
-.tableGrid a {
+.artifactRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.artifactRow button {
   display: grid;
   grid-template-columns: 80px minmax(0, 1fr) 80px;
   gap: 12px;
   align-items: center;
   padding: 10px 12px;
+  border: 0;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.artifactRow.active button {
+  outline: 1px solid rgba(246, 189, 56, 0.55);
+  background: rgba(246, 189, 56, 0.08);
+}
+
+.artifactRow a {
+  padding: 9px 11px;
+  border-radius: 999px;
+  background: rgba(79, 183, 223, 0.12);
+  color: var(--road-blue);
   text-decoration: none;
+  font-size: 12px;
 }
 
 .tableGrid span {
@@ -653,7 +765,8 @@ h2 {
     grid-template-columns: 1fr;
   }
 
-  .tableGrid a {
+  .artifactRow,
+  .artifactRow button {
     grid-template-columns: 1fr;
   }
 }

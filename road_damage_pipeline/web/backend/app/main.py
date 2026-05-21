@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from .artifacts import list_artifacts
 from .models import JobOptions, JobState, ReportLanguage
 from .runner import PipelineRunner
-from .settings import AppSettings, IMAGE_SUFFIXES, VIDEO_SUFFIXES
+from .settings import AppSettings, IMAGE_SUFFIXES, VIDEO_SUFFIXES, load_siliconflow_api_key
 
 
 class JobStore:
@@ -87,6 +87,7 @@ def validate_video_duration(path: Path, max_seconds: int) -> None:
 def create_app(settings: AppSettings | None = None, runner: Any | None = None) -> FastAPI:
     settings = settings or AppSettings()
     settings.output_root.mkdir(parents=True, exist_ok=True)
+    load_siliconflow_api_key(settings)
     store = JobStore()
     runner = runner or PipelineRunner(settings)
 
@@ -107,6 +108,12 @@ def create_app(settings: AppSettings | None = None, runner: Any | None = None) -
             "pipeline_root": str(settings.pipeline_root),
             "pipeline_python": settings.pipeline_python,
             "siliconflow_api_ready": bool(os.getenv("SILICONFLOW_API_KEY")),
+            "siliconflow_api_source": settings.siliconflow_api_source,
+            "siliconflow_api_hint": (
+                "API key loaded for real Qwen reports."
+                if os.getenv("SILICONFLOW_API_KEY")
+                else "Set SILICONFLOW_API_KEY or create a local apikey.txt before starting the backend."
+            ),
         }
 
     @app.post("/api/jobs")
